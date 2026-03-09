@@ -1,0 +1,12 @@
+{
+  "total_signals": 608,
+  "classified": 0,
+  "unclassified": 608,
+  "by_source": {
+    "shopify_reviews": 608
+  },
+  "by_urgency": {},
+  "by_sentiment": {},
+  "avg_rating": 4.45,
+  "stores_resolved": 232
+}

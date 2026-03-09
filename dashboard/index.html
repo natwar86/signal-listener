@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Listener — Saltbox Growth Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a1a;
+    --paper: #f5f0e8;
+    --accent: #c2491d;
+    --accent-light: #e8d5c4;
+    --muted: #8a8275;
+    --border: #d4cec2;
+    --card-bg: #fffdf8;
+    --tag-bg: #f0e8d8;
+    --gap-red: #b83a2a;
+    --opp-green: #2a7d4f;
+    --strategic-blue: #2a5a8a;
+    --star-filled: #c2491d;
+    --star-empty: #d4cec2;
+    --hot: #b83a2a;
+    --warm: #c2791d;
+    --cold: #6b8fa3;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', -apple-system, sans-serif;
+    --mono: 'DM Mono', 'JetBrains Mono', monospace;
+    --radius: 8px;
+  }
+
+  html { font-size: 14px; scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Page Hero ── */
+  .page-hero {
+    padding: 4rem 2rem 3rem;
+    max-width: 80%;
+    margin: 0 auto;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .page-hero .section-number {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-hero h1 em { font-style: italic; color: var(--accent); }
+
+  .page-hero .subtitle {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 650px;
+  }
+
+  /* ── Stats strip ── */
+  .stats-strip {
+    max-width: 80%;
+    margin: 0 auto 2rem;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    animation: fadeUp 0.5s ease both 0.1s;
+  }
+
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1rem;
+    text-align: center;
+  }
+
+  .stat-card .stat-value {
+    font-family: var(--serif);
+    font-size: 1.8rem;
+    color: var(--ink);
+    display: block;
+    line-height: 1.2;
+  }
+
+  .stat-card .stat-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  .stat-card.hot .stat-value { color: var(--hot); }
+  .stat-card.warm .stat-value { color: var(--warm); }
+
+  /* ── Filters ── */
+  .filters-bar {
+    max-width: 80%;
+    margin: 0 auto 1.5rem;
+    padding: 0 2rem;
+    animation: fadeUp 0.5s ease both 0.2s;
+  }
+
+  .filters-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .filter-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  select, input[type="text"] {
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    padding: 0.45rem 0.75rem;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  select:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(194, 73, 29, 0.12);
+  }
+
+  select {
+    cursor: pointer;
+    padding-right: 2rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238a8275'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+
+  input[type="text"] { width: 160px; }
+  input[type="text"]::placeholder { color: var(--muted); }
+
+  .filter-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 0.15rem;
+  }
+
+  .pill-filter { display: flex; gap: 3px; }
+
+  .pill-btn {
+    padding: 0.3rem 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: all 0.15s;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  .pill-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .pill-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .pill-btn.hot.active { background: var(--hot); border-color: var(--hot); }
+  .pill-btn.warm.active { background: var(--warm); border-color: var(--warm); }
+  .pill-btn.cold.active { background: var(--cold); border-color: var(--cold); }
+
+  .results-count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .results-count strong { color: var(--ink); font-weight: 500; }
+
+  /* ── Table ── */
+  .table-wrap {
+    max-width: 96%;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+    animation: fadeUp 0.5s ease both 0.3s;
+  }
+
+  .table-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+  col.col-urgency { width: 6%; }
+  col.col-source { width: 8%; }
+  col.col-rating { width: 6%; }
+  col.col-author { width: 10%; }
+  col.col-store { width: 11%; }
+  col.col-date { width: 9%; }
+  col.col-summary { width: 22%; }
+  col.col-pain { width: 13%; }
+  col.col-review { width: 15%; }
+
+  thead th {
+    padding: 0.85rem 0.75rem;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    background: var(--tag-bg);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+
+  thead th:hover { color: var(--ink); }
+  thead th.sorted { color: var(--accent); }
+
+  thead th .sort-arrow {
+    display: inline-block;
+    margin-left: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    font-size: 0.55rem;
+  }
+
+  thead th:hover .sort-arrow { opacity: 0.4; }
+  thead th.sorted .sort-arrow { opacity: 1; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(194, 73, 29, 0.03); }
+
+  tbody td {
+    padding: 0.85rem 0.75rem;
+    font-size: 0.85rem;
+    vertical-align: top;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Row urgency indicators */
+  tr.urgency-hot { border-left: 3px solid var(--hot); background: rgba(184, 58, 42, 0.04); }
+  tr.urgency-warm { border-left: 3px solid var(--warm); background: rgba(194, 121, 29, 0.03); }
+
+  /* Low rating highlight (unclassified signals) */
+  tr.low-rating { border-left: 3px solid var(--gap-red); background: rgba(184, 58, 42, 0.03); }
+
+  /* ── Badges ── */
+  .urgency-badge {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .urgency-badge.hot { background: rgba(184, 58, 42, 0.12); color: var(--hot); }
+  .urgency-badge.warm { background: rgba(194, 121, 29, 0.12); color: var(--warm); }
+  .urgency-badge.cold { background: rgba(107, 143, 163, 0.12); color: var(--cold); }
+  .urgency-badge.unclassified { background: var(--tag-bg); color: var(--muted); }
+
+  .sentiment-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .sentiment-dot.negative { background: var(--hot); }
+  .sentiment-dot.neutral { background: var(--muted); }
+  .sentiment-dot.positive { background: var(--opp-green); }
+
+  .source-badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .source-badge.shopify_reviews { background: rgba(42, 90, 138, 0.1); color: var(--strategic-blue); }
+  .source-badge.reddit { background: rgba(255, 86, 0, 0.1); color: #d44500; }
+  .source-badge.google_maps { background: rgba(52, 168, 83, 0.1); color: #2d8f4e; }
+  .source-badge.twitter { background: rgba(29, 155, 240, 0.1); color: #1a8cd8; }
+
+  .pain-tag {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: var(--tag-bg);
+    color: var(--muted);
+    display: inline-block;
+    margin: 1px 2px 1px 0;
+  }
+
+  .app-badge {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  .app-shipbob { background: rgba(42, 90, 138, 0.12); color: var(--strategic-blue); }
+  .app-shiphero { background: rgba(42, 125, 79, 0.12); color: var(--opp-green); }
+  .app-shipmonk { background: rgba(194, 73, 29, 0.12); color: var(--accent); }
+  .app-fulfillrite { background: rgba(138, 42, 138, 0.12); color: #8a2a8a; }
+  .app-saltbox { background: rgba(194, 73, 29, 0.15); color: var(--accent); }
+
+  /* ── Stars ── */
+  .stars { display: inline-flex; gap: 1px; }
+  .star { width: 13px; height: 13px; }
+  .star-filled { color: var(--star-filled); }
+  .star-empty { color: var(--star-empty); }
+
+  /* ── Expandable review text ── */
+  .review-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .review-text.expanded {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+
+  .summary-text {
+    font-size: 0.8rem;
+    color: var(--ink);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .no-summary {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── Store link ── */
+  td a {
+    color: var(--strategic-blue);
+    text-decoration: none;
+    font-size: 0.8rem;
+    word-break: break-all;
+  }
+
+  td a:hover { text-decoration: underline; }
+
+  .no-url { color: var(--muted); }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .page-btn {
+    min-width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+
+  .page-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── Loading ── */
+  .loading {
+    padding: 4rem;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .empty-state {
+    padding: 4rem;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* ── Footer ── */
+  footer {
+    max-width: 80%;
+    margin: 0 auto;
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  footer .footer-name {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  footer p { margin-bottom: 0.5rem; }
+  footer a { color: var(--strategic-blue); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  footer .built-with {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 1rem;
+    color: var(--border);
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 768px) {
+    .page-hero, .stats-strip, .filters-bar, .table-wrap, footer { max-width: 100%; }
+    .filters-card { flex-direction: column; align-items: stretch; }
+    .filter-divider { display: none; }
+    .results-count { margin-left: 0; margin-top: 0.5rem; }
+    table { font-size: 0.75rem; }
+    input[type="text"] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-hero">
+  <div class="section-number">Saltbox Growth Engine</div>
+  <h1>Signal <em>Listener</em></h1>
+  <p class="subtitle">
+    AI-powered competitive intelligence. Monitoring competitor reviews, forums, and social
+    for signals that indicate potential Saltbox customers.
+  </p>
+</div>
+
+<div class="stats-strip" id="stats-strip">
+  <div class="stat-card"><span class="stat-value">—</span><span class="stat-label">Total Signals</span></div>
+  <div class="stat-card"><span class="stat-value">—</span><span class="stat-label">Classified</span></div>
+  <div class="stat-card"><span class="stat-value">—</span><span class="stat-label">Sources</span></div>
+  <div class="stat-card"><span class="stat-value">—</span><span class="stat-label">Stores Resolved</span></div>
+  <div class="stat-card hot"><span class="stat-value">—</span><span class="stat-label">Hot Signals</span></div>
+  <div class="stat-card warm"><span class="stat-value">—</span><span class="stat-label">Warm Signals</span></div>
+</div>
+
+<div class="filters-bar">
+  <div class="filters-card">
+    <div class="filter-group">
+      <span class="filter-label">Source</span>
+      <select id="filter-source">
+        <option value="">All Sources</option>
+      </select>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">Urgency</span>
+      <div class="pill-filter" id="urgency-filter">
+        <button class="pill-btn active" data-urgency="">All</button>
+        <button class="pill-btn hot" data-urgency="hot">Hot</button>
+        <button class="pill-btn warm" data-urgency="warm">Warm</button>
+        <button class="pill-btn cold" data-urgency="cold">Cold</button>
+      </div>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">Rating</span>
+      <div class="pill-filter" id="star-filter">
+        <button class="pill-btn active" data-rating="0">All</button>
+        <button class="pill-btn" data-rating="1">1</button>
+        <button class="pill-btn" data-rating="2">2</button>
+        <button class="pill-btn" data-rating="3">3</button>
+        <button class="pill-btn" data-rating="4">4</button>
+        <button class="pill-btn" data-rating="5">5</button>
+      </div>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">Search</span>
+      <input type="text" id="filter-search" placeholder="keyword...">
+    </div>
+
+    <span class="results-count" id="results-count"></span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="table-card">
+    <div class="loading" id="loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading signals...</div>
+    </div>
+
+    <table id="signals-table" style="display:none">
+      <colgroup>
+        <col class="col-urgency">
+        <col class="col-source">
+        <col class="col-rating">
+        <col class="col-author">
+        <col class="col-store">
+        <col class="col-date">
+        <col class="col-summary">
+        <col class="col-pain">
+        <col class="col-review">
+      </colgroup>
+      <thead>
+        <tr>
+          <th data-sort="urgency">Urgency <span class="sort-arrow">&#9650;</span></th>
+          <th data-sort="source">Source <span class="sort-arrow">&#9650;</span></th>
+          <th data-sort="rating" class="sorted">Rating <span class="sort-arrow">&#9650;</span></th>
+          <th data-sort="author">Author <span class="sort-arrow">&#9650;</span></th>
+          <th>Store</th>
+          <th data-sort="date">Date <span class="sort-arrow">&#9650;</span></th>
+          <th>AI Summary</th>
+          <th>Pain Types</th>
+          <th>Review</th>
+        </tr>
+      </thead>
+      <tbody id="signals-body"></tbody>
+    </table>
+
+    <div class="empty-state" id="empty-state" style="display:none">No signals match your filters.</div>
+  </div>
+
+  <div class="pagination" id="pagination" style="display:none"></div>
+</div>
+
+<footer>
+  <div class="footer-name">Natwar Maheshwari</div>
+  <p>Assessment for Director of Growth at Saltbox<br>March 2026</p>
+  <p>
+    <a href="mailto:natwar86@gmail.com">natwar86@gmail.com</a> &middot;
+    <a href="https://linkedin.com/in/natwar">LinkedIn</a> &middot;
+    <a href="https://github.com/natwar86">GitHub</a>
+  </p>
+  <p class="built-with">Built with AI as a force multiplier</p>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  const PER_PAGE = 50;
+
+  let allSignals = [];
+  let filtered = [];
+  let currentPage = 1;
+  let sortKey = 'rating';
+  let sortDir = 1;
+
+  let filterSource = '';
+  let filterUrgency = '';
+  let filterRating = 0;
+  let filterSearch = '';
+
+  const $table = document.getElementById('signals-table');
+  const $tbody = document.getElementById('signals-body');
+  const $loading = document.getElementById('loading');
+  const $empty = document.getElementById('empty-state');
+  const $pagination = document.getElementById('pagination');
+  const $stats = document.getElementById('stats-strip');
+  const $count = document.getElementById('results-count');
+  const $sourceSelect = document.getElementById('filter-source');
+
+  const esc = s => {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  };
+
+  const starSVG = (filled) => `<svg class="star ${filled ? 'star-filled' : 'star-empty'}" viewBox="0 0 16 15" fill="currentColor"><path d="M8 0.75l2.47 5.01 5.53.8-4 3.9.94 5.49L8 13.18l-4.94 2.77.94-5.49-4-3.9 5.53-.8L8 .75z"/></svg>`;
+
+  function renderStars(rating) {
+    if (!rating) return '<span class="no-url">—</span>';
+    let html = '<span class="stars">';
+    for (let i = 1; i <= 5; i++) html += starSVG(i <= rating);
+    html += '</span>';
+    return html;
+  }
+
+  function parseISODate(str) {
+    if (!str) return 0;
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return str;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function displayUrl(url) {
+    if (!url) return '';
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').split('?')[0];
+  }
+
+  function urgencyOrder(u) {
+    if (u === 'hot') return 1;
+    if (u === 'warm') return 2;
+    if (u === 'cold') return 3;
+    return 4;
+  }
+
+  function sourceLabel(s) {
+    const labels = {
+      shopify_reviews: 'Shopify',
+      reddit: 'Reddit',
+      google_maps: 'Google Maps',
+      twitter: 'Twitter/X',
+      trustpilot: 'Trustpilot',
+      youtube: 'YouTube',
+      job_postings: 'Jobs',
+      crunchbase: 'Funding',
+    };
+    return labels[s] || s;
+  }
+
+  async function loadData() {
+    try {
+      const [signalsResp, statsResp] = await Promise.all([
+        fetch('data/signals.json'),
+        fetch('data/stats.json'),
+      ]);
+
+      if (signalsResp.ok) {
+        allSignals = await signalsResp.json();
+      }
+
+      let stats = {};
+      if (statsResp.ok) {
+        stats = await statsResp.json();
+      }
+
+      if (allSignals.length === 0) {
+        $loading.innerHTML = '<div class="loading-text">No signals found. Run the collector and export scripts first.</div>';
+        return;
+      }
+
+      // Populate source filter
+      const sources = [...new Set(allSignals.map(s => s.source))].sort();
+      sources.forEach(src => {
+        const opt = document.createElement('option');
+        opt.value = src;
+        opt.textContent = sourceLabel(src);
+        $sourceSelect.appendChild(opt);
+      });
+
+      // Stats
+      const hotCount = stats.by_urgency?.hot || 0;
+      const warmCount = stats.by_urgency?.warm || 0;
+      const sourceCount = Object.keys(stats.by_source || {}).length;
+      const avgRating = stats.avg_rating || '—';
+
+      $stats.innerHTML = `
+        <div class="stat-card"><span class="stat-value">${stats.total_signals || allSignals.length}</span><span class="stat-label">Total Signals</span></div>
+        <div class="stat-card"><span class="stat-value">${stats.classified || 0}</span><span class="stat-label">Classified</span></div>
+        <div class="stat-card"><span class="stat-value">${sourceCount}</span><span class="stat-label">Sources</span></div>
+        <div class="stat-card"><span class="stat-value">${stats.stores_resolved || 0}</span><span class="stat-label">Stores Resolved</span></div>
+        <div class="stat-card hot"><span class="stat-value">${hotCount}</span><span class="stat-label">Hot Signals</span></div>
+        <div class="stat-card warm"><span class="stat-value">${warmCount}</span><span class="stat-label">Warm Signals</span></div>
+      `;
+
+      $loading.style.display = 'none';
+      $table.style.display = '';
+      applyFilters();
+
+    } catch (err) {
+      console.error('Failed to load data:', err);
+      $loading.innerHTML = '<div class="loading-text">Error loading data. Check console.</div>';
+    }
+  }
+
+  function applyFilters() {
+    const searchLower = filterSearch.toLowerCase();
+
+    filtered = allSignals.filter(s => {
+      if (filterSource && s.source !== filterSource) return false;
+      if (filterUrgency) {
+        const u = s.classification?.urgency || '';
+        if (u !== filterUrgency) return false;
+      }
+      if (filterRating) {
+        const r = s.content?.rating;
+        if (r !== filterRating) return false;
+      }
+      if (searchLower) {
+        const body = (s.content?.body || '').toLowerCase();
+        const summary = (s.classification?.summary || '').toLowerCase();
+        const author = (s.author?.name || '').toLowerCase();
+        if (!body.includes(searchLower) && !summary.includes(searchLower) && !author.includes(searchLower)) return false;
+      }
+      return true;
+    });
+
+    sortData();
+    currentPage = 1;
+    render();
+  }
+
+  function sortData() {
+    filtered.sort((a, b) => {
+      let va, vb;
+      switch (sortKey) {
+        case 'rating':
+          va = a.content?.rating || 0;
+          vb = b.content?.rating || 0;
+          break;
+        case 'date':
+          va = parseISODate(a.timestamp);
+          vb = parseISODate(b.timestamp);
+          break;
+        case 'urgency':
+          va = urgencyOrder(a.classification?.urgency);
+          vb = urgencyOrder(b.classification?.urgency);
+          break;
+        case 'source':
+          va = a.source || '';
+          vb = b.source || '';
+          return sortDir * va.localeCompare(vb);
+        case 'author':
+          va = (a.author?.name || '').toLowerCase();
+          vb = (b.author?.name || '').toLowerCase();
+          return sortDir * va.localeCompare(vb);
+        default:
+          va = 0; vb = 0;
+      }
+      return sortDir * (va - vb);
+    });
+  }
+
+  function render() {
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PER_PAGE;
+    const page = filtered.slice(start, start + PER_PAGE);
+
+    $count.innerHTML = `<strong>${total}</strong> of ${allSignals.length} signals`;
+
+    if (total === 0) {
+      $tbody.innerHTML = '';
+      $empty.style.display = '';
+      $pagination.style.display = 'none';
+      return;
+    }
+    $empty.style.display = 'none';
+
+    $tbody.innerHTML = page.map((s, i) => {
+      const cl = s.classification || {};
+      const urgency = cl.urgency || '';
+      const sentiment = cl.sentiment || '';
+      const rating = s.content?.rating;
+      const isLow = rating && rating <= 3;
+      const appSlug = s.metadata?.app_slug || '';
+
+      let rowClass = '';
+      if (urgency === 'hot') rowClass = 'urgency-hot';
+      else if (urgency === 'warm') rowClass = 'urgency-warm';
+      else if (isLow && !urgency) rowClass = 'low-rating';
+
+      // Urgency badge
+      const urgencyClass = urgency || 'unclassified';
+      const urgencyLabel = urgency || '...';
+      const urgencyBadge = `<span class="urgency-badge ${urgencyClass}">${sentiment ? '<span class="sentiment-dot ' + sentiment + '"></span>' : ''}${esc(urgencyLabel)}</span>`;
+
+      // Source badge
+      const sourceClass = s.source || '';
+      let sourceName = sourceLabel(s.source);
+      if (appSlug) sourceName = `<span class="app-badge app-${appSlug}">${esc(appSlug)}</span>`;
+      const sourceBadge = `<span class="source-badge ${sourceClass}">${esc(sourceLabel(s.source))}</span>`;
+
+      // Store URL
+      const storeUrl = s.author?.company_url || '';
+      const storeCell = storeUrl
+        ? `<a href="${esc(storeUrl)}" target="_blank" rel="noopener" title="${esc(storeUrl)}">${esc(displayUrl(storeUrl))}</a>`
+        : '<span class="no-url">&mdash;</span>';
+
+      // Pain type tags
+      const painTags = (cl.pain_types || []).map(p => `<span class="pain-tag">${esc(p)}</span>`).join('');
+
+      // Summary
+      const summary = cl.summary
+        ? `<span class="summary-text">${esc(cl.summary)}</span>`
+        : '<span class="no-summary">awaiting classification</span>';
+
+      const animDelay = i * 0.015;
+
+      return `<tr class="${rowClass}" style="animation: fadeUp 0.3s ease both ${animDelay}s">
+        <td>${urgencyBadge}</td>
+        <td>${sourceBadge}${appSlug ? '<br>' + sourceName : ''}</td>
+        <td>${renderStars(rating)}</td>
+        <td title="${esc(s.author?.name || '')}">${esc(s.author?.name || '—')}</td>
+        <td>${storeCell}</td>
+        <td>${formatDate(s.timestamp)}</td>
+        <td>${summary}</td>
+        <td>${painTags || '<span class="no-url">—</span>'}</td>
+        <td><div class="review-text" onclick="this.classList.toggle('expanded')">${esc(s.content?.body || '')}</div></td>
+      </tr>`;
+    }).join('');
+
+    // Pagination
+    if (totalPages <= 1) {
+      $pagination.style.display = 'none';
+    } else {
+      $pagination.style.display = '';
+      let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&laquo;</button>`;
+      for (let p = 1; p <= totalPages; p++) {
+        if (totalPages > 10 && Math.abs(p - currentPage) > 3 && p !== 1 && p !== totalPages) {
+          if (p === currentPage - 4 || p === currentPage + 4) html += '<span class="page-btn" style="border:none;cursor:default">&hellip;</span>';
+          continue;
+        }
+        html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+      }
+      html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>&raquo;</button>`;
+      $pagination.innerHTML = html;
+    }
+  }
+
+  window.goPage = function(p) {
+    const totalPages = Math.ceil(filtered.length / PER_PAGE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    render();
+    document.querySelector('.table-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Event listeners
+  $sourceSelect.addEventListener('change', e => {
+    filterSource = e.target.value;
+    applyFilters();
+  });
+
+  document.getElementById('urgency-filter').addEventListener('click', e => {
+    const btn = e.target.closest('.pill-btn');
+    if (!btn) return;
+    document.querySelectorAll('#urgency-filter .pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterUrgency = btn.dataset.urgency;
+    applyFilters();
+  });
+
+  document.getElementById('star-filter').addEventListener('click', e => {
+    const btn = e.target.closest('.pill-btn');
+    if (!btn) return;
+    document.querySelectorAll('#star-filter .pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterRating = parseInt(btn.dataset.rating) || 0;
+    applyFilters();
+  });
+
+  let searchTimeout;
+  document.getElementById('filter-search').addEventListener('input', e => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      filterSearch = e.target.value;
+      applyFilters();
+    }, 250);
+  });
+
+  // Column sorting
+  document.querySelectorAll('thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortDir *= -1;
+      } else {
+        sortKey = key;
+        sortDir = 1;
+      }
+      document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      th.querySelector('.sort-arrow').textContent = sortDir === 1 ? '\u25B2' : '\u25BC';
+      sortData();
+      currentPage = 1;
+      render();
+    });
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>

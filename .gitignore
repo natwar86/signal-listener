@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+signals.db
+output/*/debug_html/
+output/*/progress.json
+output/*/reviews.jsonl
+output/*/store_url_cache.json
+.DS_Store
