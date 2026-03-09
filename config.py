@@ -16,7 +16,7 @@ load_dotenv()
 
 ROOT_DIR = Path(__file__).parent
 DB_PATH = ROOT_DIR / "signals.db"
-DASHBOARD_DATA_DIR = ROOT_DIR / "dashboard" / "data"
+DASHBOARD_DATA_DIR = ROOT_DIR / "docs" / "data"
 OUTPUT_DIR = ROOT_DIR / "output"
 
 # ---------------------------------------------------------------------------
