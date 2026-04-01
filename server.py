@@ -32,17 +32,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(DOCS_DIR), **kwargs)
 
     def do_GET(self):
-        # Serve data/ requests from the volume instead of the app dir
-        if self.path.startswith("/data/") and DATA_DIR.exists():
-            file_path = DATA_DIR / self.path[6:]  # strip "/data/"
-            if file_path.exists() and file_path.is_file():
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Cache-Control", "no-cache, must-revalidate")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(file_path.read_bytes())
-                return
+        # Serve data/ requests from the volume, falling back to bundled app data
+        if self.path.startswith("/data/"):
+            filename = self.path[6:]  # strip "/data/"
+            # Try volume first (pipeline output), then bundled data
+            for base in (DATA_DIR, DOCS_DIR / "data"):
+                file_path = base / filename
+                if file_path.exists() and file_path.is_file():
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Cache-Control", "no-cache, must-revalidate")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(file_path.read_bytes())
+                    return
 
         super().do_GET()
 
