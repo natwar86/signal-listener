@@ -31,21 +31,23 @@ logging.basicConfig(
 log = logging.getLogger("signal-listener")
 
 
-def step_collect():
+def step_collect(max_pages=None, apps=None):
     """Collect reviews from all configured Shopify apps."""
     log.info("=" * 60)
     log.info("STEP 1: Collecting Shopify reviews")
     log.info("=" * 60)
 
+    app_list = apps or SHOPIFY_APPS
     fetcher = PoliteFetcher(min_delay=SHOPIFY_MIN_DELAY, max_delay=SHOPIFY_MAX_DELAY)
     total_new = 0
 
     try:
-        for app_slug in SHOPIFY_APPS:
+        for app_slug in app_list:
             log.info(f"Collecting: {app_slug}")
             signals = collect_shopify_reviews(
                 app_slug=app_slug,
                 fetcher=fetcher,
+                max_pages=max_pages,
                 skip_resolve=True,  # Skip store URL resolution in automated runs
                 db_path=DB_PATH,
             )
@@ -105,14 +107,25 @@ def step_export():
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the signal collection pipeline")
+    parser.add_argument("--max-pages", type=int, help="Max pages per app (for testing)")
+    parser.add_argument("--apps", nargs="*", help="Only collect from these app slugs")
+    parser.add_argument("--skip-collect", action="store_true", help="Skip collection, only classify + export")
+    parser.add_argument("--skip-classify", action="store_true", help="Skip classification")
+    args = parser.parse_args()
+
     log.info("Signal Listener pipeline starting")
     init_db(DB_PATH)
 
-    new = step_collect()
-    if new > 0:
+    if not args.skip_collect:
+        new = step_collect(max_pages=args.max_pages, apps=args.apps)
+        if new > 0 and not args.skip_classify:
+            step_classify()
+        elif new == 0:
+            log.info("No new signals — skipping classification")
+    elif not args.skip_classify:
         step_classify()
-    else:
-        log.info("No new signals — skipping classification")
 
     step_export()
     log.info("Pipeline complete.")
