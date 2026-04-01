@@ -14,10 +14,13 @@ load_dotenv()
 # Paths
 # ---------------------------------------------------------------------------
 
+# Railway mounts a persistent volume at VOLUME_PATH.
+# Locally, everything stays in the project directory.
 ROOT_DIR = Path(__file__).parent
-DB_PATH = ROOT_DIR / "signals.db"
-DASHBOARD_DATA_DIR = ROOT_DIR / "docs" / "data"
-OUTPUT_DIR = ROOT_DIR / "output"
+VOLUME_PATH = Path(os.getenv("VOLUME_PATH", str(ROOT_DIR)))
+DB_PATH = VOLUME_PATH / "signals.db"
+DASHBOARD_DATA_DIR = VOLUME_PATH / "docs" / "data"
+OUTPUT_DIR = VOLUME_PATH / "output"
 
 # ---------------------------------------------------------------------------
 # API Keys
@@ -33,11 +36,19 @@ REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT", "signal-listener/0.2 by saltb
 # ---------------------------------------------------------------------------
 
 SHOPIFY_APPS = [
+    # 3PLs (highest signal value for WareSpace referrals)
     "shipbob",
     "shiphero",
     "shipmonk",
     "fulfillrite",
     "saltbox",  # Parsel (own app)
+    "deliverr-fulfillment-1",  # Flexport (formerly Deliverr)
+    "app29385",  # Red Stag Fulfillment
+    # Shipping/logistics (adjacent pain)
+    "shipstation",
+    "easyship",
+    # WMS/inventory (warehouse need signal)
+    "skusavvy",
 ]
 
 SHOPIFY_MIN_DELAY = 4.0

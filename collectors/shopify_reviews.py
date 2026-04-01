@@ -250,6 +250,10 @@ def collect_shopify_reviews(
     """
     Scrape reviews for one app and insert into the DB.
     Returns list of newly inserted signals.
+
+    Always starts from page 1 (newest reviews) and stops when it hits
+    pages with no new reviews — so daily runs only fetch what's new.
+    On first run (no existing data), scrapes all available pages.
     """
     from config import DB_PATH
     if db_path is None:
@@ -259,51 +263,47 @@ def collect_shopify_reviews(
     app_dir = OUTPUT_DIR / app_slug
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load progress
-    progress_file = app_dir / "progress.json"
-    progress = {}
-    if progress_file.exists():
-        with open(progress_file) as f:
-            progress = json.load(f)
+    # Check if we already have data for this app (incremental mode)
+    conn = get_connection(db_path)
+    existing_count = conn.execute(
+        "SELECT COUNT(*) FROM signals WHERE raw_json LIKE ?",
+        (f'%"app_slug": "{app_slug}"%',),
+    ).fetchone()[0]
+    conn.close()
+    is_incremental = existing_count > 0
 
-    start_page = progress.get("last_completed_page", 0) + 1
-    total_pages = progress.get("total_pages")
+    # Fetch page 1 to determine total pages
+    log.info(f"[{app_slug}] Fetching page 1 (incremental={is_incremental}, existing={existing_count})...")
+    resp = fetcher.fetch(f"{app_url}/reviews?page=1&sort=created_at&order=desc")
+    if resp is None:
+        log.error(f"[{app_slug}] Could not reach reviews page")
+        return []
 
-    # Determine total pages
-    if total_pages is None:
-        log.info(f"[{app_slug}] Fetching page 1 to determine total pages...")
-        resp = fetcher.fetch(f"{app_url}/reviews?page=1")
-        if resp is None:
-            log.error(f"[{app_slug}] Could not reach reviews page")
-            return []
+    total_pages = get_total_pages(resp.text)
 
-        total_pages = get_total_pages(resp.text)
-        progress["total_pages"] = total_pages
-        _save_progress(progress_file, progress)
+    if save_html:
+        _save_debug_html(resp.text, app_slug, 1)
 
-        if save_html:
-            _save_debug_html(resp.text, app_slug, 1)
+    # Process page 1
+    reviews = parse_reviews_page(resp.text)
+    new_signals = _process_page_reviews(reviews, app_slug, fetcher, skip_resolve, db_path)
+    log.info(f"[{app_slug}] Page 1/{total_pages}: {len(reviews)} reviews, {len(new_signals)} new")
 
-        if start_page == 1:
-            reviews = parse_reviews_page(resp.text)
-            signals = _process_page_reviews(reviews, app_slug, fetcher, skip_resolve, db_path)
-            progress["last_completed_page"] = 1
-            _save_progress(progress_file, progress)
-            start_page = 2
-            new_signals = signals
-        else:
-            new_signals = []
-    else:
-        new_signals = []
+    # In incremental mode, stop early if page 1 had no new reviews
+    if is_incremental and len(new_signals) == 0:
+        log.info(f"[{app_slug}] No new reviews on page 1 — already up to date.")
+        return new_signals
 
+    # Determine how many pages to scrape
     if max_pages is not None:
         total_pages = min(total_pages, max_pages)
 
-    log.info(f"[{app_slug}] Scraping pages {start_page}-{total_pages}")
+    log.info(f"[{app_slug}] Scraping pages 2-{total_pages}")
 
+    no_new_streak = 0
     empty_streak = 0
-    for page in range(start_page, total_pages + 1):
-        url = f"{app_url}/reviews?page={page}"
+    for page in range(2, total_pages + 1):
+        url = f"{app_url}/reviews?page={page}&sort=created_at&order=desc"
         resp = fetcher.fetch(url)
         if resp is None:
             log.warning(f"[{app_slug}] Skipping page {page} (fetch failed)")
@@ -318,15 +318,21 @@ def collect_shopify_reviews(
             new_signals.extend(signals)
             empty_streak = 0
             log.info(f"[{app_slug}] Page {page}/{total_pages}: {len(reviews)} reviews, {len(signals)} new")
+
+            # In incremental mode, stop if we've hit all-duplicate pages
+            if is_incremental and len(signals) == 0:
+                no_new_streak += 1
+                if no_new_streak >= 2:
+                    log.info(f"[{app_slug}] 2 pages with no new reviews — caught up.")
+                    break
+            else:
+                no_new_streak = 0
         else:
             empty_streak += 1
-            log.warning(f"[{app_slug}] Page {page}: 0 reviews")
+            log.warning(f"[{app_slug}] Page {page}: 0 reviews parsed")
             if empty_streak >= 3:
                 log.warning(f"[{app_slug}] 3 empty pages in a row — stopping")
                 break
-
-        progress["last_completed_page"] = page
-        _save_progress(progress_file, progress)
 
     log.info(f"[{app_slug}] Done. {len(new_signals)} new signals inserted.")
     return new_signals
