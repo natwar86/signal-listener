@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Simple web server for the Signal Listener dashboard.
+Signal Listener: web server + scheduled pipeline.
 
-Serves the static dashboard HTML from the app, and JSON data files
-from the persistent volume (where the pipeline writes them).
+Serves the dashboard and runs the collection pipeline on a schedule.
+Single service on Railway with one persistent volume.
 """
 
 import os
+import threading
+import logging
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -15,6 +17,12 @@ ROOT_DIR = Path(__file__).parent
 DOCS_DIR = ROOT_DIR / "docs"
 VOLUME_PATH = Path(os.environ.get("VOLUME_PATH", str(ROOT_DIR)))
 DATA_DIR = VOLUME_PATH / "docs" / "data"
+
+# Schedule: comma-separated weekday numbers (0=Mon, 1=Tue, ... 6=Sun)
+COLLECT_DAYS = os.environ.get("COLLECT_DAYS", "1,4")  # Tue + Fri
+COLLECT_HOUR = int(os.environ.get("COLLECT_HOUR", "6"))  # 6 AM UTC
+
+log = logging.getLogger("signal-listener")
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -42,15 +50,63 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         super().end_headers()
 
+    def log_message(self, format, *args):
+        # Quiet down request logging
+        pass
+
+
+def run_scheduler():
+    """Simple scheduler that runs the pipeline on configured days."""
+    import time
+    from datetime import datetime, timezone
+
+    collect_days = {int(d.strip()) for d in COLLECT_DAYS.split(",")}
+    log.info(f"Scheduler started: running on weekdays {collect_days} at {COLLECT_HOUR}:00 UTC")
+
+    last_run_date = None
+
+    while True:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+
+        if (
+            now.weekday() in collect_days
+            and now.hour >= COLLECT_HOUR
+            and last_run_date != today
+        ):
+            log.info(f"Scheduler: starting pipeline run for {today}")
+            try:
+                from scripts.pipeline import main as run_pipeline
+                run_pipeline()
+                last_run_date = today
+                log.info(f"Scheduler: pipeline complete for {today}")
+            except Exception as e:
+                log.error(f"Scheduler: pipeline failed: {e}")
+                last_run_date = today  # Don't retry today
+
+        # Check every 15 minutes
+        time.sleep(900)
+
 
 def main():
-    # Ensure data dir exists (pipeline may not have run yet)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    # Ensure data dir exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Start the scheduler in a background thread
+    scheduler = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler.start()
+
+    # Start the web server (main thread)
     server = HTTPServer(("0.0.0.0", PORT), DashboardHandler)
-    print(f"Dashboard running on port {PORT}")
-    print(f"  HTML from: {DOCS_DIR}")
-    print(f"  Data from: {DATA_DIR}")
+    log.info(f"Dashboard running on port {PORT}")
+    log.info(f"  HTML from: {DOCS_DIR}")
+    log.info(f"  Data from: {DATA_DIR}")
     server.serve_forever()
 
 
