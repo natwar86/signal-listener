@@ -274,7 +274,7 @@ def collect_shopify_reviews(
 
     # Fetch page 1 to determine total pages
     log.info(f"[{app_slug}] Fetching page 1 (incremental={is_incremental}, existing={existing_count})...")
-    resp = fetcher.fetch(f"{app_url}/reviews?page=1&sort=created_at&order=desc")
+    resp = fetcher.fetch(f"{app_url}/reviews?page=1")
     if resp is None:
         log.error(f"[{app_slug}] Could not reach reviews page")
         return []
@@ -303,7 +303,7 @@ def collect_shopify_reviews(
     no_new_streak = 0
     empty_streak = 0
     for page in range(2, total_pages + 1):
-        url = f"{app_url}/reviews?page={page}&sort=created_at&order=desc"
+        url = f"{app_url}/reviews?page={page}"
         resp = fetcher.fetch(url)
         if resp is None:
             log.warning(f"[{app_slug}] Skipping page {page} (fetch failed)")

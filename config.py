@@ -40,10 +40,10 @@ SHOPIFY_APPS = [
     "shipbob",
     "shiphero",
     "shipmonk",
-    "fulfillrite",
-    "saltbox",  # Parsel (own app)
-    "deliverr-fulfillment-1",  # Flexport (formerly Deliverr)
-    "app29385",  # Red Stag Fulfillment
+    "fulfillrite-order-fulfillment",  # Fulfillrite
+    # "saltbox" — Parsel, too few reviews for /reviews page
+    # "deliverr-fulfillment-1" — Flexport, delisted from app store
+    # "app29385" — Red Stag, no parseable reviews
     # Shipping/logistics (adjacent pain)
     "shipstation",
     "easyship",
