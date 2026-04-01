@@ -548,8 +548,7 @@
   <div class="section-number">Saltbox Growth Engine</div>
   <h1>Signal <em>Listener</em></h1>
   <p class="subtitle">
-    AI-powered competitive intelligence. Monitoring competitor reviews, forums, and social
-    for signals that indicate potential Saltbox customers.
+    Monitoring Shopify app reviews from ShipBob, ShipHero, ShipMonk, Fulfillrite, ShipStation, Easyship &amp; SKUSavvy.
   </p>
 </div>
 
@@ -568,6 +567,15 @@
       <span class="filter-label">Source</span>
       <select id="filter-source">
         <option value="">All Sources</option>
+      </select>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <span class="filter-label">App</span>
+      <select id="filter-app">
+        <option value="">All Apps</option>
       </select>
     </div>
 
@@ -673,6 +681,7 @@
   let sortDir = 1;
 
   let filterSource = '';
+  let filterApp = '';
   let filterUrgency = '';
   let filterRating = 0;
   let filterSearch = '';
@@ -685,6 +694,7 @@
   const $stats = document.getElementById('stats-strip');
   const $count = document.getElementById('results-count');
   const $sourceSelect = document.getElementById('filter-source');
+  const $appSelect = document.getElementById('filter-app');
 
   const esc = s => {
     const d = document.createElement('div');
@@ -741,6 +751,19 @@
     return labels[s] || s;
   }
 
+  function appLabel(slug) {
+    const labels = {
+      shipbob: 'ShipBob',
+      shiphero: 'ShipHero',
+      shipmonk: 'ShipMonk',
+      'fulfillrite-order-fulfillment': 'Fulfillrite',
+      shipstation: 'ShipStation',
+      easyship: 'Easyship',
+      skusavvy: 'SKUSavvy',
+    };
+    return labels[slug] || slug;
+  }
+
   async function loadData() {
     try {
       const [signalsResp, statsResp] = await Promise.all([
@@ -769,6 +792,15 @@
         opt.value = src;
         opt.textContent = sourceLabel(src);
         $sourceSelect.appendChild(opt);
+      });
+
+      // Populate app filter
+      const apps = [...new Set(allSignals.map(s => s.metadata?.app_slug).filter(Boolean))].sort();
+      apps.forEach(slug => {
+        const opt = document.createElement('option');
+        opt.value = slug;
+        opt.textContent = appLabel(slug);
+        $appSelect.appendChild(opt);
       });
 
       // Stats
@@ -801,6 +833,7 @@
 
     filtered = allSignals.filter(s => {
       if (filterSource && s.source !== filterSource) return false;
+      if (filterApp && (s.metadata?.app_slug || '') !== filterApp) return false;
       if (filterUrgency) {
         const u = s.classification?.urgency || '';
         if (u !== filterUrgency) return false;
@@ -953,6 +986,11 @@
   // Event listeners
   $sourceSelect.addEventListener('change', e => {
     filterSource = e.target.value;
+    applyFilters();
+  });
+
+  $appSelect.addEventListener('change', e => {
+    filterApp = e.target.value;
     applyFilters();
   });
 
