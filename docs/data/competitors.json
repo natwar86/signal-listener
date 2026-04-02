@@ -1,0 +1,590 @@
+{
+  "categories": [
+    {
+      "id": "3pl",
+      "name": "3PL / Outsourced Fulfillment",
+      "color": "#b83a2a",
+      "description": "Pick/pack/ship for ecommerce brands. The highest volume of public complaints and switching signals in the ecosystem.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouses", "reason": "Frustrated 3PL customers are prime prospects for self-fulfillment space" },
+        { "segment": "Competing 3PLs", "reason": "Win customers actively looking to switch providers" },
+        { "segment": "WMS vendors", "reason": "Brands leaving 3PLs need warehouse management software" }
+      ],
+      "companies": [
+        {
+          "name": "ShipBob",
+          "slug": "shipbob",
+          "shopify_app": true,
+          "shopify_slug": "shipbob",
+          "target": "SMB to Mid-Market",
+          "description": "Tech-enabled 3PL with 60+ fulfillment centers globally, 2-day shipping, merchant dashboard.",
+          "top_complaints": ["Hidden fees (15-30% shipping markup)", "Slow support (48+ hrs)", "Offboarding fees >$3,000", "Lost/mixed SKUs"],
+          "signal_priority": "very_high",
+          "tracking": true,
+          "competes_with": ["ShipMonk", "ShipHero", "Flexport", "Flowspace", "Red Stag"]
+        },
+        {
+          "name": "ShipMonk",
+          "slug": "shipmonk",
+          "shopify_app": true,
+          "shopify_slug": "shipmonk",
+          "target": "SMB",
+          "description": "3PL specializing in subscription boxes, DTC, and small-to-mid brands. 12+ fulfillment centers.",
+          "top_complaints": ["Exit process takes 6+ months", "Cross-shipped orders", "Billing errors", "No FIFO picking"],
+          "signal_priority": "very_high",
+          "tracking": true,
+          "competes_with": ["ShipBob", "ShipHero", "Fulfillrite", "Simpl Fulfillment"]
+        },
+        {
+          "name": "ShipHero",
+          "slug": "shiphero",
+          "shopify_app": true,
+          "shopify_slug": "shiphero",
+          "target": "Mid-Market to Enterprise",
+          "description": "Dual offering: 3PL fulfillment + standalone WMS ($1,995/mo). Claims 99.99% accuracy.",
+          "top_complaints": ["Higher price point", "Complex onboarding", "WMS learning curve"],
+          "signal_priority": "high",
+          "tracking": true,
+          "competes_with": ["ShipBob", "ShipMonk", "SKUSavvy", "Cin7", "Logiwa"]
+        },
+        {
+          "name": "Fulfillrite",
+          "slug": "fulfillrite",
+          "shopify_app": true,
+          "shopify_slug": "fulfillrite-order-fulfillment",
+          "target": "SMB / Crowdfunding",
+          "description": "SMB-focused 3PL with transparent pricing, crowdfunding fulfillment specialty (Kickstarter, Indiegogo).",
+          "top_complaints": ["Limited capacity at scale", "Basic tech stack"],
+          "signal_priority": "medium",
+          "tracking": true,
+          "competes_with": ["ShipBob", "ShipMonk", "Simpl Fulfillment"]
+        },
+        {
+          "name": "Red Stag Fulfillment",
+          "slug": "red-stag",
+          "shopify_app": true,
+          "shopify_slug": "app29385",
+          "target": "Mid-Market (heavy/oversized)",
+          "description": "Premium 3PL for heavy, oversized, and high-value products. Financial guarantees on accuracy.",
+          "top_complaints": ["Niche focus limits flexibility", "Premium pricing"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipBob", "ShipMonk", "Ryder E-Commerce"]
+        },
+        {
+          "name": "Ryder E-Commerce",
+          "slug": "ryder",
+          "shopify_app": true,
+          "shopify_slug": "ryder-ecommerce",
+          "target": "Mid-Market to Enterprise",
+          "description": "Enterprise-grade 3PL (formerly Whiplash). Omnichannel fulfillment with real-time dashboard.",
+          "top_complaints": ["Enterprise pricing", "Minimum commitments"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipBob", "ShipHero", "Flexport"]
+        },
+        {
+          "name": "ShipFusion",
+          "slug": "shipfusion",
+          "shopify_app": true,
+          "shopify_slug": "shipfusion",
+          "target": "Mid-Market DTC",
+          "description": "3PL for high-growth DTC with centers in Chicago, Las Vegas, Toronto, York PA. Dedicated account managers.",
+          "top_complaints": ["Multi-warehouse complexity", "Limited geographic coverage"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipBob", "ShipHero", "Ryder E-Commerce"]
+        },
+        {
+          "name": "Simpl Fulfillment",
+          "slug": "simpl",
+          "shopify_app": false,
+          "target": "SMB",
+          "description": "Austin, TX-based 3PL with flat-rate all-inclusive pricing. Same-day shipping, FBA prep, kitting.",
+          "top_complaints": ["Single-location limitation", "Capacity constraints at scale"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Fulfillrite", "ShipMonk", "ShipBob"]
+        },
+        {
+          "name": "ShipNetwork",
+          "slug": "shipnetwork",
+          "shopify_app": false,
+          "target": "SMB to Mid-Market",
+          "description": "Formerly Rakuten Super Logistics. 10+ fulfillment centers, 100% next-day shipping guarantee.",
+          "top_complaints": ["Opaque pricing", "Capacity issues"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["ShipBob", "ShipMonk", "Red Stag"]
+        },
+        {
+          "name": "eFulfillment Service",
+          "slug": "efulfillment",
+          "shopify_app": false,
+          "target": "Micro-SMB / Startups",
+          "description": "Budget-friendly 3PL for startups. No minimum order requirements. Michigan-based.",
+          "top_complaints": ["Limited scalability", "Basic tech"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["Fulfillrite", "Simpl Fulfillment"]
+        }
+      ]
+    },
+    {
+      "id": "cowarehouse",
+      "name": "Co-Warehousing / Flexible Space",
+      "color": "#2a7d4f",
+      "description": "Flexible warehouse space for ecommerce and small businesses. Growing category as brands move from 3PLs to self-fulfillment.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouse operators", "reason": "Understand competitor positioning, pricing, and gaps to win market share" },
+        { "segment": "3PLs", "reason": "Identify which brands are leaving for self-fulfillment and why" },
+        { "segment": "Real estate / flex space investors", "reason": "Market sizing and demand signals for co-warehousing" }
+      ],
+      "companies": [
+        {
+          "name": "Saltbox",
+          "slug": "saltbox",
+          "shopify_app": true,
+          "shopify_slug": "parsel",
+          "target": "DTC Ecommerce SMB",
+          "description": "Co-warehousing with fulfillment-ready suites, daily carrier pickups, Parsel shipping app. 11 locations in 8 metros.",
+          "top_complaints": ["Limited locations", "Pricing for smallest units"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["WareSpace", "ReadySpaces", "Cubework", "Portal Warehousing"]
+        },
+        {
+          "name": "WareSpace",
+          "slug": "warespace",
+          "shopify_app": false,
+          "target": "SMB (mixed-use)",
+          "description": "All-inclusive small warehouse units (200-2,000 sq ft). 6-12 month contracts, not month-to-month.",
+          "top_complaints": ["Longer lease commitments", "Not ecommerce-specific", "No carrier pickups"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["Saltbox", "ReadySpaces", "Cubework"]
+        },
+        {
+          "name": "ReadySpaces",
+          "slug": "readyspaces",
+          "shopify_app": false,
+          "target": "SMB (mixed-use)",
+          "description": "Co-warehousing network with 38 locations. Flexible units (100-5,000+ sq ft) plus coworking space.",
+          "top_complaints": ["General-purpose, not ecommerce-optimized", "No fulfillment infrastructure"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["Saltbox", "WareSpace", "Cubework"]
+        },
+        {
+          "name": "Cubework",
+          "slug": "cubework",
+          "shopify_app": false,
+          "target": "SMB (industrial)",
+          "description": "Flexible on-demand warehouse and industrial spaces. 77+ locations (largest co-warehousing footprint).",
+          "top_complaints": ["Industrial/general-purpose", "Not ecommerce-focused"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Saltbox", "ReadySpaces", "WareSpace"]
+        },
+        {
+          "name": "Portal Warehousing",
+          "slug": "portal",
+          "shopify_app": false,
+          "target": "SMB Ecommerce",
+          "description": "Warehouse units (100-4,000 sq ft) combining storage, fulfillment, and office. Urban locations.",
+          "top_complaints": ["Fewer locations", "Less infrastructure"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Saltbox", "WareSpace", "ReadySpaces"]
+        },
+        {
+          "name": "Loloft",
+          "slug": "loloft",
+          "shopify_app": false,
+          "target": "Early-stage / Micro-SMB",
+          "description": "Micro-warehousing + modern coworking. 7 locations: SLC, Phoenix, Orlando, Minneapolis, Manhattan, LA, Brooklyn.",
+          "top_complaints": ["Small/early-stage focus only", "Limited scalability"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Saltbox", "Portal Warehousing", "FlexHQ"]
+        },
+        {
+          "name": "FlexHQ (FlexEtc)",
+          "slug": "flexhq",
+          "shopify_app": false,
+          "target": "SMB / Creative",
+          "description": "Shared industrial environments with smaller warehouse units, private offices, and studios.",
+          "top_complaints": ["General-purpose industrial", "Not fulfillment-optimized"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["Saltbox", "Cubework", "ReadySpaces"]
+        },
+        {
+          "name": "Palletized",
+          "slug": "palletized",
+          "shopify_app": false,
+          "target": "SMB Ecommerce (South FL)",
+          "description": "Miami co-warehouse + 3PL hybrid. Offers fulfillment services directly to tenants.",
+          "top_complaints": ["Single location (Miami)", "No national network"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["Saltbox", "ReadySpaces"]
+        }
+      ]
+    },
+    {
+      "id": "shipping",
+      "name": "Shipping / Label Platforms",
+      "color": "#2a5a8a",
+      "description": "Users already self-fulfill and may need warehouse space, better tools, or fulfillment partners as they scale.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouses", "reason": "These users self-fulfill and need physical space to scale" },
+        { "segment": "3PLs", "reason": "Brands outgrowing self-fulfillment are ready for outsourced solutions" },
+        { "segment": "Competing shipping platforms", "reason": "Identify dissatisfied users and feature gaps to exploit" }
+      ],
+      "companies": [
+        {
+          "name": "ShipStation",
+          "slug": "shipstation",
+          "shopify_app": true,
+          "shopify_slug": "shipstation",
+          "target": "SMB to Mid-Market",
+          "description": "Most established multi-carrier shipping software. Batch labels, rate comparison, automation rules.",
+          "top_complaints": ["Price increases", "UI complexity", "Customer support"],
+          "signal_priority": "high",
+          "tracking": true,
+          "competes_with": ["Shippo", "Easyship", "Pirate Ship", "Veeqo"]
+        },
+        {
+          "name": "Easyship",
+          "slug": "easyship",
+          "shopify_app": true,
+          "shopify_slug": "easyship",
+          "target": "SMB (international focus)",
+          "description": "Shipping platform with strongest international focus. Duties/taxes at checkout, 250+ couriers.",
+          "top_complaints": ["Complex pricing tiers", "Rate discrepancies"],
+          "signal_priority": "high",
+          "tracking": true,
+          "competes_with": ["ShipStation", "Shippo", "Pirate Ship"]
+        },
+        {
+          "name": "Shippo",
+          "slug": "shippo",
+          "shopify_app": true,
+          "shopify_slug": "shippo",
+          "target": "SMB / Developers",
+          "description": "API-first shipping platform. 40+ carriers, 300,000+ shippers. Developer-friendly.",
+          "top_complaints": ["API reliability", "Rate comparison accuracy"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["ShipStation", "Easyship", "Pirate Ship"]
+        },
+        {
+          "name": "Pirate Ship",
+          "slug": "pirate-ship",
+          "shopify_app": true,
+          "shopify_slug": "pirate-ship",
+          "target": "Micro-SMB / Side hustlers",
+          "description": "100% free shipping labels for USPS and UPS. No monthly fees, no markups. Lowest rates.",
+          "top_complaints": ["Limited carrier options", "Basic features"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Shippo", "ShipStation", "Veeqo"]
+        },
+        {
+          "name": "Veeqo",
+          "slug": "veeqo",
+          "shopify_app": true,
+          "shopify_slug": "veeqo",
+          "target": "Multi-channel sellers",
+          "description": "Free shipping software (Amazon-owned). Inventory sync, multi-channel management, warehouse management.",
+          "top_complaints": ["Amazon ecosystem lock-in", "Feature limitations"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["ShipStation", "Shippo"]
+        }
+      ]
+    },
+    {
+      "id": "wms",
+      "name": "WMS / Inventory Management",
+      "color": "#6b5b8a",
+      "description": "Standalone WMS users have committed to self-fulfillment. They represent high-intent demand for space, tools, and services.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouses", "reason": "WMS users need physical space -- highest-intent prospects" },
+        { "segment": "Competing WMS vendors", "reason": "Identify feature gaps and churn patterns to win customers" },
+        { "segment": "3PLs", "reason": "Brands struggling with self-fulfillment may be ready to outsource" }
+      ],
+      "companies": [
+        {
+          "name": "SKUSavvy",
+          "slug": "skusavvy",
+          "shopify_app": true,
+          "shopify_slug": "skusavvy",
+          "target": "SMB Self-fulfillment",
+          "description": "Visual 3D warehouse management with location-based inventory, visual pick guidance, multi-location support.",
+          "top_complaints": ["Feature gaps at scale", "Limited integrations"],
+          "signal_priority": "very_high",
+          "tracking": true,
+          "competes_with": ["ShipHero WMS", "Cin7", "Logiwa"]
+        },
+        {
+          "name": "Cin7 Core",
+          "slug": "cin7-core",
+          "shopify_app": true,
+          "shopify_slug": "dear-inventory",
+          "target": "SMB",
+          "description": "Full-stack inventory and order management. POS, B2B, warehousing, and 3PL coordination. 700+ integrations.",
+          "top_complaints": ["Complex setup", "Pricing tiers"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["SKUSavvy", "ShipHero WMS", "Extensiv"]
+        },
+        {
+          "name": "Cin7 Omni",
+          "slug": "cin7-omni",
+          "shopify_app": true,
+          "shopify_slug": "cin7-connected-inventory-v2",
+          "target": "Mid-Market to Enterprise",
+          "description": "Enterprise inventory management. Multi-warehouse, 3PL coordination, advanced reporting. $749/mo.",
+          "top_complaints": ["High price point", "Implementation complexity"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipHero WMS", "Extensiv", "Logiwa"]
+        },
+        {
+          "name": "Extensiv",
+          "slug": "extensiv",
+          "shopify_app": false,
+          "target": "3PLs / Mid-Market",
+          "description": "Formerly 3PL Central / Skubana. Cloud-based fulfillment and order management. 150+ integrations.",
+          "top_complaints": ["3PL-focused, less SMB-friendly", "Complex pricing"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["Logiwa", "ShipHero WMS", "Cin7"]
+        },
+        {
+          "name": "Logiwa WMS",
+          "slug": "logiwa",
+          "shopify_app": false,
+          "target": "Mid-Market to Enterprise",
+          "description": "Cloud WMS for high-volume B2C, DTC, and 3PL operations. Automated picking, packing, shipping.",
+          "top_complaints": ["Enterprise focus", "Steep learning curve"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["ShipHero WMS", "Extensiv", "Cin7"]
+        }
+      ]
+    },
+    {
+      "id": "fba_prep",
+      "name": "FBA Prep / Amazon Prep Centers",
+      "color": "#c2791d",
+      "description": "Amazon ended all FBA prep/labeling services Jan 1, 2026. Thousands of sellers now need prep workspace or outsourced prep services.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouses", "reason": "Sellers who prefer to self-prep need physical space near Amazon FCs" },
+        { "segment": "FBA prep services", "reason": "Massive demand surge -- identify sellers actively looking for prep solutions" },
+        { "segment": "3PLs with FBA prep", "reason": "New revenue stream from Amazon sellers who need shelf-ready prep" }
+      ],
+      "companies": [
+        {
+          "name": "AMZ Prep",
+          "slug": "amzprep",
+          "shopify_app": false,
+          "target": "Amazon sellers (all sizes)",
+          "description": "Largest global FBA prep partner. 50+ fulfillment centers, 280+ logistics specialists. Multi-channel.",
+          "top_complaints": ["Prep quality inconsistencies", "Pricing per unit adds up"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["MyFBAPrep", "SHIPHYPE", "Red Stag"]
+        },
+        {
+          "name": "MyFBAPrep",
+          "slug": "myfbaprep",
+          "shopify_app": false,
+          "target": "Amazon sellers (mid-market)",
+          "description": "FBA prep network with 50+ warehouses. 24-72 hour check-in. Also does DTC fulfillment.",
+          "top_complaints": ["Prep cost at scale", "Quality control across network"],
+          "signal_priority": "high",
+          "tracking": false,
+          "competes_with": ["AMZ Prep", "SHIPHYPE", "Red Stag"]
+        },
+        {
+          "name": "SHIPHYPE",
+          "slug": "shiphype",
+          "shopify_app": false,
+          "target": "Amazon sellers (SMB)",
+          "description": "Fast-growing FBA prep and fulfillment. US and Canada warehouses. Supports FBA and FBM.",
+          "top_complaints": ["Processing delays", "Limited US coverage"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["AMZ Prep", "MyFBAPrep"]
+        }
+      ]
+    },
+    {
+      "id": "on_demand",
+      "name": "On-Demand / Micro-Fulfillment",
+      "color": "#5a8a6b",
+      "description": "Distributed fulfillment networks. Variable quality drives brands to seek either controlled space or better-managed alternatives.",
+      "intelligence_buyers": [
+        { "segment": "Co-warehouses", "reason": "Brands frustrated with inconsistent networks want their own controlled space" },
+        { "segment": "Traditional 3PLs", "reason": "On-demand users who want more dedicated service are switchable" },
+        { "segment": "On-demand competitors", "reason": "Understand network quality issues to differentiate" }
+      ],
+      "companies": [
+        {
+          "name": "Flexport / Deliverr",
+          "slug": "flexport",
+          "shopify_app": true,
+          "shopify_slug": "fulfillment-network",
+          "target": "Mid-Market to Enterprise",
+          "description": "Global freight + fulfillment. Acquired Deliverr (2022) and Shopify Logistics (2023). Shopify owns ~13% equity.",
+          "top_complaints": ["Too enterprise for SMB", "Complex onboarding", "Opaque pricing"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipBob", "ShipHero", "Flowspace"]
+        },
+        {
+          "name": "Flowspace",
+          "slug": "flowspace",
+          "shopify_app": false,
+          "target": "SMB to Mid-Market",
+          "description": "On-demand warehousing across 130+ fulfillment centers. No contracts or volume minimums. AI-powered.",
+          "top_complaints": ["Variable quality across network", "Inconsistent service"],
+          "signal_priority": "medium",
+          "tracking": false,
+          "competes_with": ["ShipBob", "Flexport", "Flexe"]
+        },
+        {
+          "name": "Flexe",
+          "slug": "flexe",
+          "shopify_app": false,
+          "target": "Enterprise",
+          "description": "On-demand warehousing marketplace. 800+ warehouse operators. Serves Walmart, Staples, Ralph Lauren.",
+          "top_complaints": ["Enterprise-only", "Not accessible to SMB"],
+          "signal_priority": "low",
+          "tracking": false,
+          "competes_with": ["Flowspace", "Flexport"]
+        }
+      ]
+    }
+  ],
+  "market_dynamics": [
+    {
+      "id": 1,
+      "title": "Hidden 3PL Fees",
+      "direction": "3PL \u2192 Self-fulfillment or competing 3PL",
+      "description": "15-30% shipping markups, storage penalties, receiving fees, offboarding costs ($3,000+ at ShipBob).",
+      "opportunity": "Any competitor can win these brands by offering transparent pricing. Co-warehouses sell space; competing 3PLs sell better terms.",
+      "frequency": "Very common"
+    },
+    {
+      "id": 2,
+      "title": "Loss of Quality Control",
+      "direction": "3PL \u2192 Self-fulfillment",
+      "description": "Cross-shipped orders, mixed SKUs, sloppy packing, no FIFO, wrong items. Error rates >2%.",
+      "opportunity": "Brands with premium or custom products are the most sensitive. They want hands-on control over their fulfillment process.",
+      "frequency": "Common"
+    },
+    {
+      "id": 3,
+      "title": "3PL Exit Nightmares",
+      "direction": "3PL \u2192 Any alternative (desperate)",
+      "description": "ShipMonk exit takes 6+ months with continued billing. ShipBob offboarding >$3,000. Inventory held hostage.",
+      "opportunity": "Highest-intent signals. Brands in exit mode need a solution immediately and will sign fast.",
+      "frequency": "High intent"
+    },
+    {
+      "id": 4,
+      "title": "Outgrowing Home / Garage",
+      "direction": "Home fulfillment \u2192 Professional space",
+      "description": "Shipping software users hitting volume where home fulfillment is unsustainable. 50+ orders/day from a garage.",
+      "opportunity": "The primary growth funnel for co-warehousing. Also a funnel for 3PLs who can offer outsourced fulfillment.",
+      "frequency": "Very common"
+    },
+    {
+      "id": 5,
+      "title": "Amazon FBA Prep Crisis",
+      "direction": "FBA-reliant sellers \u2192 Need prep space or services",
+      "description": "Amazon ended all US prep/labeling services Jan 1, 2026. 82% of Amazon sellers use FBA.",
+      "opportunity": "Massive, time-sensitive. Every seller who relied on Amazon's prep needs either outsourced prep or their own workspace.",
+      "frequency": "Massive"
+    },
+    {
+      "id": 6,
+      "title": "Custom / Kitted Products",
+      "direction": "3PL \u2192 Self-fulfillment",
+      "description": "Subscription boxes, custom-assembled products, special handling. 3PLs charge premium for kitting.",
+      "opportunity": "These brands need physical space for assembly. Co-warehouses and makerspaces can serve them.",
+      "frequency": "Common"
+    },
+    {
+      "id": 7,
+      "title": "Scaling Past 3PL Price Threshold",
+      "direction": "3PL \u2192 Self-fulfillment",
+      "description": "At 500-2,000 orders/month, per-order costs ($3-5 + markup) make self-fulfillment cheaper.",
+      "opportunity": "These brands need space + tools. Co-warehouses sell space; WMS vendors sell software; shipping platforms sell labels.",
+      "frequency": "Common"
+    },
+    {
+      "id": 8,
+      "title": "Multi-Channel Complexity",
+      "direction": "Single-channel \u2192 Flexible space or better tools",
+      "description": "Brands on Shopify + Amazon + TikTok Shop + wholesale need to prep differently for each channel.",
+      "opportunity": "Growing rapidly as social commerce expands. Any provider that simplifies multi-channel fulfillment wins.",
+      "frequency": "Growing"
+    }
+  ],
+  "lead_channels": [
+    {
+      "name": "Shopify App Store",
+      "type": "reviews",
+      "signal_value": "Very High",
+      "description": "1-2 star reviews on competitor apps. Real Shopify merchants naming specific frustrations.",
+      "status": "Active"
+    },
+    {
+      "name": "Trustpilot",
+      "type": "reviews",
+      "signal_value": "High",
+      "description": "ShipBob (3.8/5, 963 reviews, 17% 1-star), ShipMonk (20% 1-star). Detailed complaint narratives.",
+      "status": "Planned"
+    },
+    {
+      "name": "G2 / Capterra",
+      "type": "reviews",
+      "signal_value": "High",
+      "description": "Verified business user reviews with company size and industry data. Good for targeting.",
+      "status": "Planned"
+    },
+    {
+      "name": "BBB Complaints",
+      "type": "reviews",
+      "signal_value": "High",
+      "description": "Formal complaints indicate serious failures. Brands filing BBB complaints are ready to leave.",
+      "status": "Planned"
+    },
+    {
+      "name": "Reddit",
+      "type": "community",
+      "signal_value": "Very High",
+      "description": "r/ecommerce, r/FulfillmentByAmazon, r/shopify. Direct purchase-intent signals.",
+      "status": "Planned"
+    },
+    {
+      "name": "Amazon Seller Forums",
+      "type": "community",
+      "signal_value": "High",
+      "description": "FBA prep changes, fulfillment alternatives, warehouse recommendations. Not yet tracked.",
+      "status": "Not Started"
+    },
+    {
+      "name": "Google Maps Reviews",
+      "type": "reviews",
+      "signal_value": "Medium",
+      "description": "Reviews of fulfillment centers and warehouses in target markets.",
+      "status": "Planned"
+    }
+  ]
+}

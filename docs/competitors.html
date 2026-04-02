@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Competitor Landscape — Signal Listener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a1a;
+    --paper: #f5f0e8;
+    --accent: #c2491d;
+    --accent-light: #e8d5c4;
+    --muted: #8a8275;
+    --border: #d4cec2;
+    --card-bg: #fffdf8;
+    --tag-bg: #f0e8d8;
+    --gap-red: #b83a2a;
+    --opp-green: #2a7d4f;
+    --strategic-blue: #2a5a8a;
+    --hot: #b83a2a;
+    --warm: #c2791d;
+    --cold: #6b8fa3;
+    --purple: #6b5b8a;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', -apple-system, sans-serif;
+    --mono: 'DM Mono', 'JetBrains Mono', monospace;
+    --radius: 8px;
+  }
+
+  html { font-size: 14px; scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* -- Nav bar -- */
+  .top-nav {
+    max-width: 80%;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 0;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .nav-link {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.4rem 0;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .nav-link:hover { color: var(--ink); }
+  .nav-link.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* -- Page Hero -- */
+  .page-hero {
+    padding: 3rem 2rem 2.5rem;
+    max-width: 80%;
+    margin: 0 auto;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .page-hero .section-number {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-hero h1 em { font-style: italic; color: var(--accent); }
+
+  .page-hero .subtitle {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 700px;
+  }
+
+  /* -- Summary stats -- */
+  .summary-strip {
+    max-width: 80%;
+    margin: 0 auto 2rem;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    animation: fadeUp 0.5s ease both 0.1s;
+  }
+
+  .summary-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1rem;
+    text-align: center;
+  }
+
+  .summary-card .stat-value {
+    font-family: var(--serif);
+    font-size: 1.8rem;
+    color: var(--ink);
+    display: block;
+    line-height: 1.2;
+  }
+
+  .summary-card .stat-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* -- Category sections -- */
+  .content-area {
+    max-width: 80%;
+    margin: 0 auto;
+    padding: 0 2rem 2rem;
+  }
+
+  .category-section {
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .category-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .category-title {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+  }
+
+  .category-meta {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .category-desc {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+    flex: 1;
+  }
+
+  .buyers-box {
+    background: rgba(42, 90, 138, 0.05);
+    border: 1px solid rgba(42, 90, 138, 0.15);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    flex: 1;
+  }
+
+  .buyers-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--strategic-blue);
+    opacity: 0.7;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .buyer-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-bottom: 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .buyer-segment {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--strategic-blue);
+    background: rgba(42, 90, 138, 0.08);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .buyer-reason {
+    color: var(--muted);
+  }
+
+  /* -- Company grid -- */
+  .company-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .company-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+
+  .company-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+
+  .company-card.tracking {
+    border-left: 3px solid var(--accent);
+  }
+
+  .company-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .company-name {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 400;
+  }
+
+  .tracking-badge {
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: rgba(194, 73, 29, 0.1);
+    color: var(--accent);
+  }
+
+  .shopify-badge {
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: rgba(42, 90, 138, 0.1);
+    color: var(--strategic-blue);
+  }
+
+  .priority-badge {
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    margin-left: auto;
+  }
+
+  .priority-badge.very_high { background: rgba(184, 58, 42, 0.12); color: var(--hot); }
+  .priority-badge.high { background: rgba(194, 121, 29, 0.12); color: var(--warm); }
+  .priority-badge.medium { background: rgba(107, 143, 163, 0.12); color: var(--cold); }
+  .priority-badge.low { background: var(--tag-bg); color: var(--muted); }
+
+  .company-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  .company-target {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .complaints-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hot);
+    opacity: 0.8;
+    margin-bottom: 0.35rem;
+  }
+
+  .complaint-tag {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: rgba(184, 58, 42, 0.07);
+    color: var(--hot);
+    display: inline-block;
+    margin: 2px 3px 2px 0;
+  }
+
+  .competes-row {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .competes-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .competes-tag {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: var(--tag-bg);
+    color: var(--muted);
+    display: inline-block;
+    margin: 2px 3px 2px 0;
+  }
+
+  /* -- Pain Points -- */
+  .pain-section {
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .pain-section-title {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+
+  .pain-section-desc {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+    max-width: 650px;
+  }
+
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+
+  .pain-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+
+  .pain-card:hover { border-color: var(--accent); }
+
+  .pain-number {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .pain-title {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    font-weight: 400;
+    margin: 0.25rem 0 0.35rem;
+  }
+
+  .pain-direction {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--strategic-blue);
+    background: rgba(42, 90, 138, 0.08);
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    margin-bottom: 0.6rem;
+  }
+
+  .pain-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  .pain-opportunity {
+    font-size: 0.8rem;
+    color: var(--strategic-blue);
+    line-height: 1.5;
+    padding-left: 0.75rem;
+    border-left: 2px solid rgba(42, 90, 138, 0.3);
+  }
+
+  .pain-opp-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--strategic-blue);
+    opacity: 0.7;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .pain-freq {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+
+  .pain-freq.massive { color: var(--hot); font-weight: 500; }
+
+  /* -- Lead channels -- */
+  .channels-section {
+    margin-bottom: 2.5rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .channel-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .channel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .channel-name {
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .channel-status {
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    margin-left: auto;
+  }
+
+  .channel-status.active { background: rgba(42, 125, 79, 0.12); color: var(--opp-green); }
+  .channel-status.planned { background: rgba(42, 90, 138, 0.1); color: var(--strategic-blue); }
+  .channel-status.not-started { background: var(--tag-bg); color: var(--muted); }
+
+  .channel-signal {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .channel-signal.very-high { color: var(--hot); }
+  .channel-signal.high { color: var(--warm); }
+  .channel-signal.medium { color: var(--cold); }
+
+  .channel-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  /* -- Footer -- */
+  footer {
+    max-width: 80%;
+    margin: 0 auto;
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  footer .footer-name {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+  }
+
+  footer p { margin-bottom: 0.5rem; }
+  footer a { color: var(--strategic-blue); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  footer .built-with {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 1rem;
+    color: var(--border);
+  }
+
+  /* -- Mobile -- */
+  @media (max-width: 768px) {
+    .top-nav, .page-hero, .summary-strip, .content-area, footer { max-width: 100%; }
+    .category-meta { flex-direction: column; gap: 0.75rem; }
+    .company-grid { grid-template-columns: 1fr; }
+    .pain-grid { grid-template-columns: 1fr; }
+    .channels-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <a class="nav-link" href="index.html">Signals</a>
+  <a class="nav-link active" href="competitors.html">Competitors</a>
+</nav>
+
+<div class="page-hero">
+  <div class="section-number">Signal Listener</div>
+  <h1>Competitor <em>Landscape</em></h1>
+  <p class="subtitle">
+    The ecommerce fulfillment ecosystem mapped. Who competes with whom, where the pain signals come from,
+    and which companies would pay for this intelligence.
+  </p>
+</div>
+
+<div class="summary-strip" id="summary-strip"></div>
+
+<div class="content-area">
+  <div id="categories"></div>
+
+  <div class="pain-section" id="pain-section">
+    <h2 class="pain-section-title">Market Dynamics That Drive Switching</h2>
+    <p class="pain-section-desc">The critical moments when brands change fulfillment models. Each represents a signal that any company in this ecosystem can act on.</p>
+    <div class="pain-grid" id="pain-grid"></div>
+  </div>
+
+  <div class="channels-section" id="channels-section">
+    <h2 class="pain-section-title">Lead Generation Channels</h2>
+    <p class="pain-section-desc">Where unhappy customers of the above companies go to vent and seek alternatives.</p>
+    <div class="channels-grid" id="channels-grid"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-name">Signal Listener</div>
+  <p>Market intelligence for the ecommerce fulfillment ecosystem</p>
+  <p>
+    <a href="mailto:natwar86@gmail.com">natwar86@gmail.com</a> &middot;
+    <a href="https://linkedin.com/in/natwar">LinkedIn</a> &middot;
+    <a href="https://github.com/natwar86">GitHub</a>
+  </p>
+  <p class="built-with">Built by Natwar Maheshwari</p>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  const esc = s => {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  };
+
+  async function load() {
+    try {
+      const resp = await fetch('data/competitors.json');
+      if (!resp.ok) throw new Error('Failed to load');
+      const data = await resp.json();
+      render(data);
+    } catch (err) {
+      console.error(err);
+      document.getElementById('categories').innerHTML = '<p style="padding:2rem;color:var(--muted)">Failed to load competitor data.</p>';
+    }
+  }
+
+  function render(data) {
+    const { categories, market_dynamics, lead_channels } = data;
+
+    // Summary stats
+    let totalCompanies = 0;
+    let trackingCount = 0;
+    let shopifyCount = 0;
+    categories.forEach(cat => {
+      totalCompanies += cat.companies.length;
+      cat.companies.forEach(c => {
+        if (c.tracking) trackingCount++;
+        if (c.shopify_app) shopifyCount++;
+      });
+    });
+
+    document.getElementById('summary-strip').innerHTML = `
+      <div class="summary-card"><span class="stat-value">${totalCompanies}</span><span class="stat-label">Companies Mapped</span></div>
+      <div class="summary-card"><span class="stat-value">${categories.length}</span><span class="stat-label">Categories</span></div>
+      <div class="summary-card"><span class="stat-value">${shopifyCount}</span><span class="stat-label">On Shopify</span></div>
+      <div class="summary-card"><span class="stat-value">${trackingCount}</span><span class="stat-label">Actively Tracking</span></div>
+      <div class="summary-card"><span class="stat-value">${market_dynamics.length}</span><span class="stat-label">Market Dynamics</span></div>
+      <div class="summary-card"><span class="stat-value">${lead_channels.length}</span><span class="stat-label">Lead Channels</span></div>
+    `;
+
+    // Categories + companies
+    const $cats = document.getElementById('categories');
+    $cats.innerHTML = categories.map((cat, ci) => {
+      const companiesHTML = cat.companies.map(c => {
+        const badges = [];
+        if (c.tracking) badges.push('<span class="tracking-badge">Tracking</span>');
+        if (c.shopify_app) badges.push(`<span class="shopify-badge">Shopify: ${esc(c.shopify_slug || '')}</span>`);
+
+        const priorityLabel = (c.signal_priority || '').replace('_', ' ');
+
+        const complaints = (c.top_complaints || []).map(t => `<span class="complaint-tag">${esc(t)}</span>`).join('');
+        const competes = (c.competes_with || []).map(t => `<span class="competes-tag">${esc(t)}</span>`).join('');
+
+        return `
+          <div class="company-card ${c.tracking ? 'tracking' : ''}">
+            <div class="company-name-row">
+              <span class="company-name">${esc(c.name)}</span>
+              ${badges.join('')}
+              <span class="priority-badge ${c.signal_priority || ''}">${esc(priorityLabel)}</span>
+            </div>
+            <div class="company-target">Target: ${esc(c.target)}</div>
+            <div class="company-desc">${esc(c.description)}</div>
+            ${complaints ? `<div class="complaints-label">Top complaints</div><div>${complaints}</div>` : ''}
+            ${competes ? `<div class="competes-row"><div class="competes-label">Competes with</div><div>${competes}</div></div>` : ''}
+          </div>
+        `;
+      }).join('');
+
+      const buyersHTML = (cat.intelligence_buyers || []).map(b => `
+        <div class="buyer-row">
+          <span class="buyer-segment">${esc(b.segment)}</span>
+          <span class="buyer-reason">${esc(b.reason)}</span>
+        </div>
+      `).join('');
+
+      return `
+        <div class="category-section" style="animation-delay: ${0.1 + ci * 0.08}s">
+          <div class="category-header">
+            <span class="category-dot" style="background: ${cat.color}"></span>
+            <h2 class="category-title">${esc(cat.name)}</h2>
+          </div>
+          <div class="category-meta">
+            <div class="category-desc">${esc(cat.description)}</div>
+            <div class="buyers-box">
+              <span class="buyers-label">Who buys this intelligence</span>
+              ${buyersHTML}
+            </div>
+          </div>
+          <div class="company-grid">${companiesHTML}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Market dynamics
+    document.getElementById('pain-grid').innerHTML = market_dynamics.map(p => {
+      const freqClass = p.frequency === 'Massive' ? 'massive' : '';
+      return `
+        <div class="pain-card">
+          <div class="pain-number">Dynamic ${p.id}</div>
+          <div class="pain-title">${esc(p.title)}</div>
+          <div class="pain-direction">${esc(p.direction)}</div>
+          <div class="pain-desc">${esc(p.description)}</div>
+          <div class="pain-opportunity"><span class="pain-opp-label">Opportunity</span>${esc(p.opportunity)}</div>
+          <div class="pain-freq ${freqClass}">Frequency: ${esc(p.frequency)}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Lead channels
+    document.getElementById('channels-grid').innerHTML = lead_channels.map(ch => {
+      const statusClass = ch.status === 'Active' ? 'active' : ch.status === 'Planned' ? 'planned' : 'not-started';
+      const signalClass = ch.signal_value === 'Very High' ? 'very-high' : ch.signal_value === 'High' ? 'high' : 'medium';
+      return `
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-name">${esc(ch.name)}</span>
+            <span class="channel-status ${statusClass}">${esc(ch.status)}</span>
+          </div>
+          <div class="channel-signal ${signalClass}">Signal value: ${esc(ch.signal_value)}</div>
+          <div class="channel-desc">${esc(ch.description)}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
