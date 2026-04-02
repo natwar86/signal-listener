@@ -28,6 +28,7 @@ OUTPUT_DIR = VOLUME_PATH / "output"
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 EXA_API_KEY = os.getenv("EXA_API_KEY", "")
+APOLLO_API_KEY = os.getenv("APOLLO_API_KEY", "")
 REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID", "")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET", "")
 REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT", "signal-listener/0.2 by saltbox")
