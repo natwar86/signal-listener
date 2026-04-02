@@ -253,15 +253,16 @@
 
   table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
-  col.col-urgency { width: 6%; }
-  col.col-source { width: 8%; }
-  col.col-rating { width: 6%; }
-  col.col-author { width: 10%; }
-  col.col-store { width: 11%; }
-  col.col-date { width: 9%; }
-  col.col-summary { width: 22%; }
-  col.col-pain { width: 13%; }
-  col.col-review { width: 15%; }
+  col.col-urgency { width: 5%; }
+  col.col-source { width: 7%; }
+  col.col-rating { width: 5%; }
+  col.col-author { width: 9%; }
+  col.col-store { width: 10%; }
+  col.col-contact { width: 12%; }
+  col.col-date { width: 7%; }
+  col.col-summary { width: 20%; }
+  col.col-pain { width: 11%; }
+  col.col-review { width: 14%; }
 
   thead th {
     padding: 0.85rem 0.75rem;
@@ -436,6 +437,8 @@
   td a:hover { text-decoration: underline; }
 
   .no-url { color: var(--muted); }
+  .contact-email { font-size: 0.8em; word-break: break-all; }
+  .contact-name { font-size: 0.75em; color: var(--muted); margin-bottom: 2px; }
 
   /* ── Pagination ── */
   .pagination {
@@ -630,6 +633,7 @@
         <col class="col-rating">
         <col class="col-author">
         <col class="col-store">
+        <col class="col-contact">
         <col class="col-date">
         <col class="col-summary">
         <col class="col-pain">
@@ -642,6 +646,7 @@
           <th data-sort="rating" class="sorted">Rating <span class="sort-arrow">&#9650;</span></th>
           <th data-sort="author">Author <span class="sort-arrow">&#9650;</span></th>
           <th>Store</th>
+          <th>Contact</th>
           <th data-sort="date">Date <span class="sort-arrow">&#9650;</span></th>
           <th>AI Summary</th>
           <th>Pain Types</th>
@@ -942,6 +947,17 @@
         ? `<span class="summary-text">${esc(cl.summary)}</span>`
         : '<span class="no-summary">awaiting classification</span>';
 
+      // Contact/email
+      const email = s.metadata?.email || s.metadata?.apollo_contact?.email || '';
+      const contactName = s.metadata?.apollo_contact?.name || '';
+      const contactTitle = s.metadata?.apollo_contact?.title || '';
+      let contactCell = '<span class="no-url">&mdash;</span>';
+      if (email) {
+        const emailDisplay = email.length > 25 ? email.split('@')[0] + '@...' : email;
+        const titleLine = contactName ? `<div class="contact-name" title="${esc(contactTitle)}">${esc(contactName)}</div>` : '';
+        contactCell = `${titleLine}<a href="mailto:${esc(email)}" title="${esc(email)}" class="contact-email">${esc(emailDisplay)}</a>`;
+      }
+
       const animDelay = i * 0.015;
 
       return `<tr class="${rowClass}" style="animation: fadeUp 0.3s ease both ${animDelay}s">
@@ -950,6 +966,7 @@
         <td>${renderStars(rating)}</td>
         <td title="${esc(s.author?.name || '')}">${esc(s.author?.name || '—')}</td>
         <td>${storeCell}</td>
+        <td>${contactCell}</td>
         <td>${formatDate(s.timestamp)}</td>
         <td>${summary}</td>
         <td>${painTags || '<span class="no-url">—</span>'}</td>
