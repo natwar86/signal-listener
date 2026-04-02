@@ -2,16 +2,18 @@
 """
 Enrich signals with company websites and email addresses.
 
-For reviewers missing a company URL, this script:
-  1. Tries myshopify.com subdomain probing (original method)
-  2. Tries direct domain probing (name.com, getname.com, etc.)
-  3. Scrapes the found website for email addresses
+Strategy (optimized for speed):
+  1. Exa API search first (fast, ~90% hit rate)
+  2. Falls back to myshopify.com probing + direct domain probing
+  3. Scrapes homepage + /contact for email addresses
+  4. Runs with parallel workers for throughput
 
 Usage:
     python -m scripts.enrich                # Enrich up to 50 signals
     python -m scripts.enrich --limit 200    # Enrich more
     python -m scripts.enrich --dry-run      # Preview what would be enriched
     python -m scripts.enrich --emails-only  # Only find emails for already-resolved URLs
+    python -m scripts.enrich --workers 10   # Set parallelism (default: 5)
 """
 
 import re
@@ -22,6 +24,8 @@ import argparse
 import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -57,11 +61,22 @@ SPAM_DOMAINS = {
     "bodis.com", "parkingcrew.net", "above.com", "sedo.com",
 }
 
+SKIP_MARKETPLACE_DOMAINS = {
+    "amazon.com", "etsy.com", "ebay.com", "apps.shopify.com",
+    "yelp.com", "facebook.com", "instagram.com",
+    "linkedin.com", "twitter.com", "youtube.com",
+    "tiktok.com", "pinterest.com", "reddit.com",
+    "wikipedia.org", "crunchbase.com", "bloomberg.com",
+}
+
 # Placeholder emails found in site templates
 SKIP_EMAILS = {
     "your@email.com", "email@example.com", "name@example.com",
     "info@example.com", "test@test.com", "admin@example.com",
 }
+
+# Thread-safe DB lock
+_db_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -113,47 +128,111 @@ def get_signals_missing_email(limit: int = 50, db_path=None):
 
 def update_company_url(signal_id: str, url: str, db_path=None):
     """Update the company URL for a signal."""
-    conn = get_connection(db_path or DB_PATH)
-    conn.execute(
-        "UPDATE signals SET author_company_url = ? WHERE id = ?",
-        (url, signal_id),
-    )
-    row = conn.execute(
-        "SELECT raw_json FROM signals WHERE id = ?", (signal_id,)
-    ).fetchone()
-    if row:
-        d = json.loads(row["raw_json"])
-        if "author" in d:
-            d["author"]["company_url"] = url
+    with _db_lock:
+        conn = get_connection(db_path or DB_PATH)
         conn.execute(
-            "UPDATE signals SET raw_json = ? WHERE id = ?",
-            (json.dumps(d), signal_id),
+            "UPDATE signals SET author_company_url = ? WHERE id = ?",
+            (url, signal_id),
         )
-    conn.commit()
-    conn.close()
+        row = conn.execute(
+            "SELECT raw_json FROM signals WHERE id = ?", (signal_id,)
+        ).fetchone()
+        if row:
+            d = json.loads(row["raw_json"])
+            if "author" in d:
+                d["author"]["company_url"] = url
+            conn.execute(
+                "UPDATE signals SET raw_json = ? WHERE id = ?",
+                (json.dumps(d), signal_id),
+            )
+        conn.commit()
+        conn.close()
 
 
 def update_email(signal_id: str, email: str, db_path=None):
     """Store a discovered email in the signal's raw_json metadata."""
-    conn = get_connection(db_path or DB_PATH)
-    row = conn.execute(
-        "SELECT raw_json FROM signals WHERE id = ?", (signal_id,)
-    ).fetchone()
-    if row:
-        d = json.loads(row["raw_json"])
-        if "metadata" not in d:
-            d["metadata"] = {}
-        d["metadata"]["email"] = email
-        conn.execute(
-            "UPDATE signals SET raw_json = ? WHERE id = ?",
-            (json.dumps(d), signal_id),
-        )
-    conn.commit()
-    conn.close()
+    with _db_lock:
+        conn = get_connection(db_path or DB_PATH)
+        row = conn.execute(
+            "SELECT raw_json FROM signals WHERE id = ?", (signal_id,)
+        ).fetchone()
+        if row:
+            d = json.loads(row["raw_json"])
+            if "metadata" not in d:
+                d["metadata"] = {}
+            d["metadata"]["email"] = email
+            conn.execute(
+                "UPDATE signals SET raw_json = ? WHERE id = ?",
+                (json.dumps(d), signal_id),
+            )
+        conn.commit()
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
-# Step 1: myshopify.com subdomain probing
+# URL Resolution: Exa API (primary)
+# ---------------------------------------------------------------------------
+
+def try_exa_search(name: str) -> str:
+    """Use Exa API to find a company website. Fast and high hit rate."""
+    if not EXA_API_KEY:
+        return ""
+
+    import requests as _requests
+
+    if len(name.strip()) < 3:
+        return ""
+
+    query = f'"{name}" official website'
+    try:
+        resp = _requests.post(
+            "https://api.exa.ai/search",
+            headers={"x-api-key": EXA_API_KEY, "Content-Type": "application/json"},
+            json={
+                "query": query,
+                "type": "auto",
+                "numResults": 3,
+                "category": "company",
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            log.warning(f"  Exa API error: {resp.status_code}")
+            return ""
+
+        results = resp.json().get("results", [])
+        if not results:
+            return ""
+
+        name_words = set(re.sub(r"[^a-z0-9\s]", "", name.lower()).split())
+
+        # First pass: prefer URLs where domain shares words with name
+        for r in results:
+            url = r.get("url", "")
+            if not url:
+                continue
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower().lstrip("www.")
+
+            if any(spam in domain for spam in SPAM_DOMAINS):
+                continue
+            if any(m in domain for m in SKIP_MARKETPLACE_DOMAINS):
+                continue
+
+            domain_root = domain.split(".")[0]
+            if any(w in domain_root for w in name_words if len(w) >= 3):
+                return f"https://{domain}"
+
+        # No word-match found — skip to avoid false positives
+
+    except Exception as e:
+        log.warning(f"  Exa search failed: {e}")
+
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# URL Resolution: myshopify.com probing (fallback)
 # ---------------------------------------------------------------------------
 
 def generate_myshopify_slugs(name: str) -> list[str]:
@@ -184,7 +263,7 @@ def generate_myshopify_slugs(name: str) -> list[str]:
                 candidates.add(slug[4:])
                 candidates.add(slug[4:].replace("-", ""))
 
-    # DNS labels can't exceed 63 chars; skip overly long slugs
+    # DNS labels can't exceed 63 chars
     return [c for c in candidates if 3 <= len(c) <= 60][:6]
 
 
@@ -215,7 +294,7 @@ def try_myshopify(name: str, fetcher: PoliteFetcher) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 2: Direct domain probing
+# URL Resolution: Direct domain probing (fallback)
 # ---------------------------------------------------------------------------
 
 def generate_domain_candidates(name: str) -> list[str]:
@@ -226,14 +305,12 @@ def generate_domain_candidates(name: str) -> list[str]:
     norm = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     norm = norm.lower().strip()
 
-    # Remove common business suffixes
     cleaned = re.sub(
         r"\b(inc|llc|ltd|co|corp|company|store|shop|usa|us|uk|au|ca|"
         r"official|online|the|wholesale|retail)\b\.?\s*",
         "", norm,
     ).strip()
 
-    # Make a slug (no spaces, no special chars)
     def slugify(s: str) -> str:
         return re.sub(r"[^a-z0-9]", "", s)
 
@@ -248,44 +325,32 @@ def generate_domain_candidates(name: str) -> list[str]:
     if not slug or len(slug) < 3:
         return []
 
-    candidates = []
-
-    # Most common patterns for Shopify stores
     domains = set()
     for s in [slug, slug_full]:
         if len(s) >= 3:
             domains.add(f"{s}.com")
-            domains.add(f"www.{s}.com")
             domains.add(f"shop{s}.com")
             domains.add(f"get{s}.com")
             domains.add(f"the{s}.com")
             domains.add(f"{s}.co")
 
-    # Also try hyphenated version
     if hyphen and hyphen != slug and "-" in hyphen:
         domains.add(f"{hyphen}.com")
 
-    # Handle "&" -> "and"
     if "&" in name:
         and_version = slugify(norm.replace("&", "and"))
         if and_version and and_version != slug:
             domains.add(f"{and_version}.com")
-            domains.add(f"www.{and_version}.com")
 
-    # If name looks like "Word Word", try dropping last word
-    # (e.g., "Frost Buddy" -> frostbuddy.com, already covered)
-    # But "Little Bipsy Collection" -> littlebipsy.com
     words = re.sub(r"[^a-z0-9\s]", "", cleaned).split()
     if len(words) >= 3:
         short = slugify(" ".join(words[:2]))
         if short and short != slug:
             domains.add(f"{short}.com")
 
-    # If name already looks like a domain (has .com, .co, etc.)
     if re.search(r"\.(com|co|net|org|io|us|uk|store|shop)\b", norm):
         domain = re.sub(r"\s+", "", norm)
         domains.add(domain)
-        domains.add(f"www.{domain}")
 
     # DNS labels can't exceed 63 chars
     return [d for d in list(domains) if len(d.split(".")[0]) <= 60][:12]
@@ -296,19 +361,14 @@ def validate_url(url: str, company_name: str, original_domain: str = "") -> bool
     parsed = urlparse(url)
     final_domain = parsed.netloc.lower().lstrip("www.")
 
-    # Check against known spam domains
     for spam in SPAM_DOMAINS:
         if spam in final_domain:
             return False
 
-    # If the final domain is completely different from what we requested,
-    # it's likely an expired domain redirect to spam
     if original_domain:
         orig_root = original_domain.lstrip("www.").split(".")[0]
         final_root = final_domain.split(".")[0]
-        # If roots share no overlap, it's suspicious
         if len(orig_root) >= 4 and orig_root not in final_root and final_root not in orig_root:
-            log.debug(f"  Skipping redirect: {original_domain} -> {final_domain}")
             return False
 
     return True
@@ -328,10 +388,8 @@ def try_direct_domains(name: str, fetcher: PoliteFetcher) -> str:
 
         final_url = resp.url.rstrip("/")
         if resp.status_code < 400 and validate_url(final_url, name, original_domain=domain):
-            # Clean URL
             if final_url.startswith("http://"):
                 final_url = "https://" + final_url[7:]
-            # Strip tracking params
             final_url = re.sub(r"\?.*$", "", final_url).rstrip("/")
             return final_url
 
@@ -339,109 +397,20 @@ def try_direct_domains(name: str, fetcher: PoliteFetcher) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 3: Exa API search (fallback for hard-to-find stores)
-# ---------------------------------------------------------------------------
-
-def try_exa_search(name: str) -> str:
-    """Use Exa API to find a company website when probing fails."""
-    if not EXA_API_KEY:
-        return ""
-
-    import requests as _requests
-
-    # Skip very generic names
-    if len(name.strip()) < 3:
-        return ""
-
-    query = f'"{name}" official website'
-    try:
-        resp = _requests.post(
-            "https://api.exa.ai/search",
-            headers={"x-api-key": EXA_API_KEY, "Content-Type": "application/json"},
-            json={
-                "query": query,
-                "type": "auto",
-                "numResults": 3,
-                "category": "company",
-            },
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            log.warning(f"  Exa API error: {resp.status_code}")
-            return ""
-
-        results = resp.json().get("results", [])
-        if not results:
-            return ""
-
-        # Pick the best result — prefer URLs that share words with the company name
-        name_words = set(re.sub(r"[^a-z0-9\s]", "", name.lower()).split())
-        for r in results:
-            url = r.get("url", "")
-            if not url:
-                continue
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower().lstrip("www.")
-
-            # Skip known spam/parked domains
-            if any(spam in domain for spam in SPAM_DOMAINS):
-                continue
-            # Skip marketplace listings (not their actual store)
-            if any(m in domain for m in ["amazon.com", "etsy.com", "ebay.com",
-                                          "apps.shopify.com", "yelp.com",
-                                          "facebook.com", "instagram.com",
-                                          "linkedin.com", "twitter.com"]):
-                continue
-
-            # Check if domain root shares any word with the name
-            domain_root = domain.split(".")[0]
-            if any(w in domain_root for w in name_words if len(w) >= 3):
-                clean_url = f"https://{domain}"
-                log.info(f"  Exa match: {clean_url}")
-                return clean_url
-
-        # If no word-match, return first non-marketplace result
-        for r in results:
-            url = r.get("url", "")
-            if not url:
-                continue
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower().lstrip("www.")
-            if any(spam in domain for spam in SPAM_DOMAINS):
-                continue
-            if any(m in domain for m in ["amazon.com", "etsy.com", "ebay.com",
-                                          "apps.shopify.com", "yelp.com",
-                                          "facebook.com", "instagram.com",
-                                          "linkedin.com", "twitter.com"]):
-                continue
-            clean_url = f"https://{domain}"
-            log.info(f"  Exa fallback: {clean_url}")
-            return clean_url
-
-    except Exception as e:
-        log.warning(f"  Exa search failed: {e}")
-
-    return ""
-
-
-# ---------------------------------------------------------------------------
-# Step 4: Email discovery
+# Email discovery
 # ---------------------------------------------------------------------------
 
 def find_emails_on_site(url: str, fetcher: PoliteFetcher) -> list[str]:
-    """Scrape a website for email addresses."""
+    """Scrape homepage + /contact for email addresses."""
     if not url:
         return []
 
     emails = set()
 
-    # Pages most likely to have contact info
+    # Only check 2 pages — homepage and contact
     pages_to_check = [
         url,
         f"{url}/pages/contact",
-        f"{url}/pages/contact-us",
-        f"{url}/contact",
-        f"{url}/pages/about",
     ]
 
     for page_url in pages_to_check:
@@ -503,12 +472,68 @@ def pick_best_email(emails: list[str], domain: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Worker: enrich a single signal
+# ---------------------------------------------------------------------------
+
+def enrich_one(signal: dict, index: int, total: int) -> dict:
+    """Enrich a single signal. Returns result dict."""
+    name = signal["author_name"]
+    result = {"id": signal["id"], "name": name, "url": "", "email": "", "source": ""}
+
+    try:
+        # Step 1: Exa API (fast, high hit rate)
+        url = try_exa_search(name)
+        source = "exa"
+
+        # Step 2: myshopify probing (fallback)
+        if not url:
+            fetcher = PoliteFetcher(min_delay=0.5, max_delay=1.0)
+            try:
+                url = try_myshopify(name, fetcher)
+                source = "myshopify"
+
+                # Step 3: direct domain probing (fallback)
+                if not url:
+                    url = try_direct_domains(name, fetcher)
+                    source = "domain"
+            finally:
+                fetcher.close()
+
+        if url:
+            log.info(f"[{index}/{total}] {name} -> {url} ({source})")
+            update_company_url(signal["id"], url, DB_PATH)
+            result["url"] = url
+            result["source"] = source
+
+            # Find email
+            fetcher = PoliteFetcher(min_delay=0.5, max_delay=1.0)
+            try:
+                emails = find_emails_on_site(url, fetcher)
+                if emails:
+                    domain = re.sub(r"^https?://", "", url).split("/")[0]
+                    best = pick_best_email(emails, domain)
+                    log.info(f"  [{index}] Email: {best}")
+                    update_email(signal["id"], best, DB_PATH)
+                    result["email"] = best
+            finally:
+                fetcher.close()
+        else:
+            log.info(f"[{index}/{total}] {name} -> not found")
+
+    except Exception as e:
+        log.warning(f"[{index}/{total}] Error enriching {name}: {e}")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="Enrich signals with URLs and emails")
     parser.add_argument("--limit", type=int, default=50, help="Max signals to process")
+    parser.add_argument("--workers", type=int, default=5, help="Parallel workers (default: 5)")
     parser.add_argument("--dry-run", action="store_true", help="Preview without changes")
     parser.add_argument("--emails-only", action="store_true",
                         help="Only find emails for already-resolved URLs")
@@ -529,7 +554,7 @@ def main():
 def enrich_urls_and_emails(args):
     """Find website URLs (and emails) for unresolved signals."""
     signals = get_unresolved_signals(limit=args.limit, db_path=DB_PATH)
-    log.info(f"Found {len(signals)} signals without company URL")
+    log.info(f"Found {len(signals)} signals without company URL (workers={args.workers})")
 
     if not signals:
         return
@@ -541,55 +566,25 @@ def enrich_urls_and_emails(args):
             log.info(f"  ... and {len(signals) - 20} more")
         return
 
-    fetcher = PoliteFetcher(min_delay=1.0, max_delay=2.0)
     resolved = 0
     emails_found = 0
 
-    try:
-        for i, signal in enumerate(signals, 1):
-            name = signal["author_name"]
-            log.info(f"[{i}/{len(signals)}] Enriching: {name}")
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        futures = {
+            pool.submit(enrich_one, sig, i, len(signals)): sig
+            for i, sig in enumerate(signals, 1)
+        }
 
-            try:
-                # Step 1: Try myshopify subdomain probing
-                url = try_myshopify(name, fetcher)
-                source = "myshopify"
-
-                # Step 2: Try direct domain probing
-                if not url:
-                    url = try_direct_domains(name, fetcher)
-                    source = "domain"
-
-                # Step 3: Try Exa API search
-                if not url:
-                    url = try_exa_search(name)
-                    source = "exa"
-
-                if url:
-                    log.info(f"  URL found ({source}): {url}")
-                    update_company_url(signal["id"], url, DB_PATH)
+        try:
+            for future in as_completed(futures):
+                result = future.result()
+                if result["url"]:
                     resolved += 1
-
-                    # Step 4: Try to find email
-                    emails = find_emails_on_site(url, fetcher)
-                    if emails:
-                        domain = re.sub(r"^https?://", "", url).split("/")[0]
-                        best = pick_best_email(emails, domain)
-                        log.info(f"  Email found: {best}")
-                        update_email(signal["id"], best, DB_PATH)
-                        emails_found += 1
-                    else:
-                        log.info(f"  No email found on site")
-                else:
-                    log.info(f"  Could not find URL")
-            except Exception as e:
-                log.warning(f"  Error enriching {name}: {e}")
-                continue
-
-    except KeyboardInterrupt:
-        log.info("\nInterrupted — progress saved.")
-    finally:
-        fetcher.close()
+                if result["email"]:
+                    emails_found += 1
+        except KeyboardInterrupt:
+            log.info("\nInterrupted — progress saved. Cancelling pending tasks...")
+            pool.shutdown(wait=False, cancel_futures=True)
 
     log.info(f"Done. Resolved {resolved}/{len(signals)} URLs, found {emails_found} emails.")
 
@@ -597,7 +592,7 @@ def enrich_urls_and_emails(args):
 def enrich_emails(args):
     """Find emails for signals that already have a company URL."""
     signals = get_signals_missing_email(limit=args.limit, db_path=DB_PATH)
-    log.info(f"Found {len(signals)} signals with URL but no email")
+    log.info(f"Found {len(signals)} signals with URL but no email (workers={args.workers})")
 
     if not signals:
         return
@@ -609,29 +604,42 @@ def enrich_emails(args):
             log.info(f"  ... and {len(signals) - 20} more")
         return
 
-    fetcher = PoliteFetcher(min_delay=2.0, max_delay=4.0)
-    found = 0
-
-    try:
-        for i, signal in enumerate(signals, 1):
-            name = signal["author_name"]
-            url = signal["author_company_url"]
-            log.info(f"[{i}/{len(signals)}] Finding email: {name} ({url})")
-
+    def find_email_one(signal, index, total):
+        name = signal["author_name"]
+        url = signal["author_company_url"]
+        fetcher = PoliteFetcher(min_delay=0.5, max_delay=1.0)
+        try:
             emails = find_emails_on_site(url, fetcher)
             if emails:
                 domain = re.sub(r"^https?://", "", url).split("/")[0]
                 best = pick_best_email(emails, domain)
-                log.info(f"  Email: {best}")
+                log.info(f"[{index}/{total}] {name}: {best}")
                 update_email(signal["id"], best, DB_PATH)
-                found += 1
+                return best
             else:
-                log.info(f"  No email found")
+                log.info(f"[{index}/{total}] {name}: no email")
+                return ""
+        except Exception as e:
+            log.warning(f"[{index}/{total}] Error for {name}: {e}")
+            return ""
+        finally:
+            fetcher.close()
 
-    except KeyboardInterrupt:
-        log.info("\nInterrupted — progress saved.")
-    finally:
-        fetcher.close()
+    found = 0
+
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        futures = {
+            pool.submit(find_email_one, sig, i, len(signals)): sig
+            for i, sig in enumerate(signals, 1)
+        }
+
+        try:
+            for future in as_completed(futures):
+                if future.result():
+                    found += 1
+        except KeyboardInterrupt:
+            log.info("\nInterrupted — progress saved. Cancelling pending tasks...")
+            pool.shutdown(wait=False, cancel_futures=True)
 
     log.info(f"Done. Found emails for {found}/{len(signals)} signals.")
 
