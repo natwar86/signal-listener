@@ -1,1 +1,1 @@
-{"total_signals": 1001, "classified": 1001, "unclassified": 0, "by_source": {"shopify_reviews": 1001}, "by_urgency": {"cold": 823, "hot": 91, "warm": 87}, "by_sentiment": {"negative": 169, "neutral": 8, "positive": 824}, "avg_rating": 4.35, "stores_resolved": 241}
+{"total_signals": 1001, "classified": 1001, "unclassified": 0, "by_source": {"shopify_reviews": 1001}, "by_urgency": {"cold": 823, "hot": 91, "warm": 87}, "by_sentiment": {"negative": 169, "neutral": 8, "positive": 824}, "avg_rating": 4.35, "stores_resolved": 984}

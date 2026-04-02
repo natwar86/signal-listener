@@ -46,14 +46,14 @@ class PoliteFetcher:
             log.debug(f"Waiting {remaining:.1f}s before next request")
             time.sleep(remaining)
 
-    def fetch(self, url: str, method: str = "GET", **kwargs) -> requests.Response | None:
+    def fetch(self, url: str, method: str = "GET", max_retries: int = MAX_RETRIES, **kwargs) -> requests.Response | None:
         """
         Fetch a URL politely. Returns Response on success, None after
         exhausting all retries.
         """
         backoff = INITIAL_BACKOFF
 
-        for attempt in range(1, MAX_RETRIES + 1):
+        for attempt in range(1, max_retries + 1):
             self._wait_politely()
             self._last_request_time = time.monotonic()
 
@@ -61,7 +61,7 @@ class PoliteFetcher:
                 resp = self.session.request(method, url, timeout=30, **kwargs)
             except requests.RequestException as exc:
                 log.warning(f"Request error (attempt {attempt}): {exc}")
-                if attempt < MAX_RETRIES:
+                if attempt < max_retries:
                     self._backoff_sleep(backoff, reason="request error")
                     backoff = min(backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
                 continue
@@ -82,11 +82,11 @@ class PoliteFetcher:
                 continue
 
             log.warning(f"HTTP {resp.status_code} for {url} (attempt {attempt})")
-            if attempt < MAX_RETRIES:
+            if attempt < max_retries:
                 self._backoff_sleep(backoff, reason=f"HTTP {resp.status_code}")
                 backoff = min(backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
 
-        log.error(f"Giving up on {url} after {MAX_RETRIES} attempts")
+        log.error(f"Giving up on {url} after {max_retries} attempts")
         return None
 
     @staticmethod

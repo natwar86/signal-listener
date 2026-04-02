@@ -26,7 +26,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db import get_connection, init_db
-from config import DB_PATH
+from config import DB_PATH, EXA_API_KEY
 from collectors.base import PoliteFetcher
 
 logging.basicConfig(
@@ -184,7 +184,8 @@ def generate_myshopify_slugs(name: str) -> list[str]:
                 candidates.add(slug[4:])
                 candidates.add(slug[4:].replace("-", ""))
 
-    return [c for c in candidates if len(c) >= 3][:6]
+    # DNS labels can't exceed 63 chars; skip overly long slugs
+    return [c for c in candidates if 3 <= len(c) <= 60][:6]
 
 
 def try_myshopify(name: str, fetcher: PoliteFetcher) -> str:
@@ -286,7 +287,8 @@ def generate_domain_candidates(name: str) -> list[str]:
         domains.add(domain)
         domains.add(f"www.{domain}")
 
-    return list(domains)[:12]
+    # DNS labels can't exceed 63 chars
+    return [d for d in list(domains) if len(d.split(".")[0]) <= 60][:12]
 
 
 def validate_url(url: str, company_name: str, original_domain: str = "") -> bool:
@@ -337,7 +339,93 @@ def try_direct_domains(name: str, fetcher: PoliteFetcher) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 3: Email discovery
+# Step 3: Exa API search (fallback for hard-to-find stores)
+# ---------------------------------------------------------------------------
+
+def try_exa_search(name: str) -> str:
+    """Use Exa API to find a company website when probing fails."""
+    if not EXA_API_KEY:
+        return ""
+
+    import requests as _requests
+
+    # Skip very generic names
+    if len(name.strip()) < 3:
+        return ""
+
+    query = f'"{name}" official website'
+    try:
+        resp = _requests.post(
+            "https://api.exa.ai/search",
+            headers={"x-api-key": EXA_API_KEY, "Content-Type": "application/json"},
+            json={
+                "query": query,
+                "type": "auto",
+                "numResults": 3,
+                "category": "company",
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            log.warning(f"  Exa API error: {resp.status_code}")
+            return ""
+
+        results = resp.json().get("results", [])
+        if not results:
+            return ""
+
+        # Pick the best result — prefer URLs that share words with the company name
+        name_words = set(re.sub(r"[^a-z0-9\s]", "", name.lower()).split())
+        for r in results:
+            url = r.get("url", "")
+            if not url:
+                continue
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower().lstrip("www.")
+
+            # Skip known spam/parked domains
+            if any(spam in domain for spam in SPAM_DOMAINS):
+                continue
+            # Skip marketplace listings (not their actual store)
+            if any(m in domain for m in ["amazon.com", "etsy.com", "ebay.com",
+                                          "apps.shopify.com", "yelp.com",
+                                          "facebook.com", "instagram.com",
+                                          "linkedin.com", "twitter.com"]):
+                continue
+
+            # Check if domain root shares any word with the name
+            domain_root = domain.split(".")[0]
+            if any(w in domain_root for w in name_words if len(w) >= 3):
+                clean_url = f"https://{domain}"
+                log.info(f"  Exa match: {clean_url}")
+                return clean_url
+
+        # If no word-match, return first non-marketplace result
+        for r in results:
+            url = r.get("url", "")
+            if not url:
+                continue
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower().lstrip("www.")
+            if any(spam in domain for spam in SPAM_DOMAINS):
+                continue
+            if any(m in domain for m in ["amazon.com", "etsy.com", "ebay.com",
+                                          "apps.shopify.com", "yelp.com",
+                                          "facebook.com", "instagram.com",
+                                          "linkedin.com", "twitter.com"]):
+                continue
+            clean_url = f"https://{domain}"
+            log.info(f"  Exa fallback: {clean_url}")
+            return clean_url
+
+    except Exception as e:
+        log.warning(f"  Exa search failed: {e}")
+
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Email discovery
 # ---------------------------------------------------------------------------
 
 def find_emails_on_site(url: str, fetcher: PoliteFetcher) -> list[str]:
@@ -357,7 +445,7 @@ def find_emails_on_site(url: str, fetcher: PoliteFetcher) -> list[str]:
     ]
 
     for page_url in pages_to_check:
-        resp = fetcher.fetch(page_url)
+        resp = fetcher.fetch(page_url, max_retries=1)
         if resp is None:
             continue
 
@@ -462,32 +550,41 @@ def enrich_urls_and_emails(args):
             name = signal["author_name"]
             log.info(f"[{i}/{len(signals)}] Enriching: {name}")
 
-            # Step 1: Try myshopify subdomain probing
-            url = try_myshopify(name, fetcher)
-            source = "myshopify"
+            try:
+                # Step 1: Try myshopify subdomain probing
+                url = try_myshopify(name, fetcher)
+                source = "myshopify"
 
-            # Step 2: Try direct domain probing
-            if not url:
-                url = try_direct_domains(name, fetcher)
-                source = "domain"
+                # Step 2: Try direct domain probing
+                if not url:
+                    url = try_direct_domains(name, fetcher)
+                    source = "domain"
 
-            if url:
-                log.info(f"  URL found ({source}): {url}")
-                update_company_url(signal["id"], url, DB_PATH)
-                resolved += 1
+                # Step 3: Try Exa API search
+                if not url:
+                    url = try_exa_search(name)
+                    source = "exa"
 
-                # Step 3: Try to find email
-                emails = find_emails_on_site(url, fetcher)
-                if emails:
-                    domain = re.sub(r"^https?://", "", url).split("/")[0]
-                    best = pick_best_email(emails, domain)
-                    log.info(f"  Email found: {best}")
-                    update_email(signal["id"], best, DB_PATH)
-                    emails_found += 1
+                if url:
+                    log.info(f"  URL found ({source}): {url}")
+                    update_company_url(signal["id"], url, DB_PATH)
+                    resolved += 1
+
+                    # Step 4: Try to find email
+                    emails = find_emails_on_site(url, fetcher)
+                    if emails:
+                        domain = re.sub(r"^https?://", "", url).split("/")[0]
+                        best = pick_best_email(emails, domain)
+                        log.info(f"  Email found: {best}")
+                        update_email(signal["id"], best, DB_PATH)
+                        emails_found += 1
+                    else:
+                        log.info(f"  No email found on site")
                 else:
-                    log.info(f"  No email found on site")
-            else:
-                log.info(f"  Could not find URL")
+                    log.info(f"  Could not find URL")
+            except Exception as e:
+                log.warning(f"  Error enriching {name}: {e}")
+                continue
 
     except KeyboardInterrupt:
         log.info("\nInterrupted — progress saved.")
