@@ -439,6 +439,7 @@
   .no-url { color: var(--muted); }
   .contact-email { font-size: 0.8em; word-break: break-all; }
   .contact-name { font-size: 0.75em; color: var(--muted); margin-bottom: 2px; }
+  .source-link { font-size: 0.8em; white-space: nowrap; }
 
   /* ── Pagination ── */
   .pagination {
@@ -656,6 +657,7 @@
           <th>AI Summary</th>
           <th>Pain Types</th>
           <th>Review</th>
+          <th>Link</th>
         </tr>
       </thead>
       <tbody id="signals-body"></tbody>
@@ -952,6 +954,11 @@
         ? `<span class="summary-text">${esc(cl.summary)}</span>`
         : '<span class="no-summary">awaiting classification</span>';
 
+      // Source link (Google Maps review URL or Shopify app review URL)
+      const sourceLinkCell = s.source_url
+        ? `<a href="${esc(s.source_url)}" target="_blank" rel="noopener" title="Open original review" class="source-link">view&nbsp;&#8599;</a>`
+        : '<span class="no-url">&mdash;</span>';
+
       // Contact/email
       const email = s.metadata?.email || s.metadata?.apollo_contact?.email || '';
       const contactName = s.metadata?.apollo_contact?.name || '';
@@ -976,6 +983,7 @@
         <td>${summary}</td>
         <td>${painTags || '<span class="no-url">—</span>'}</td>
         <td><div class="review-text" onclick="this.classList.toggle('expanded')">${esc(s.content?.body || '')}</div></td>
+        <td>${sourceLinkCell}</td>
       </tr>`;
     }).join('');
 
