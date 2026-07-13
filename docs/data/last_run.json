@@ -1,0 +1,11 @@
+{
+  "started_at": "2026-07-13T18:03:00.365701+00:00",
+  "collected": 0,
+  "classified": null,
+  "enriched": 93,
+  "errors": [],
+  "total_signals": 2440,
+  "companies_resolved": 1333,
+  "status": "ok",
+  "finished_at": "2026-07-13T18:21:15.706118+00:00"
+}
