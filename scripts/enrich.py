@@ -486,8 +486,14 @@ def verify_one(company: dict, index: int, total: int) -> str:
     try:
         resp = fetcher.fetch(url, max_retries=FETCH_RETRIES)
         if resp is None:
-            log.info(f"[{index}/{total}] {name}: fetch failed, leaving as-is")
-            return ""
+            # Site unreachable — record the attempt so the verify queue drains;
+            # can't confirm the URL, so it stays visible but low-confidence.
+            save_company(company["id"], {
+                "resolution_confidence": "unverified", "verified_at": _now(),
+                "notes": "verify fetch failed",
+            })
+            log.info(f"[{index}/{total}] {name}: fetch failed -> unverified")
+            return "unverified"
         confidence = verify_company_page(name, url, resp.text)
         save_company(company["id"], {
             "resolution_confidence": confidence, "verified_at": _now(),
