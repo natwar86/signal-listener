@@ -89,14 +89,43 @@ NAME_STOPWORDS = {
 _db_lock = threading.Lock()
 
 # Most stores sit behind Shopify's shared edge, which rate-limits per client
-# IP across ALL stores — gentle pacing matters more than worker count.
+# IP across ALL stores — pacing must be global across workers, not per-fetcher
+# (each company gets a fresh fetcher, so per-fetcher delays never kick in).
 FETCH_MIN_DELAY = 2.0
 FETCH_MAX_DELAY = 4.0
 FETCH_RETRIES = 2
 
+_pace_lock = threading.Lock()
+_last_fetch_time = [0.0]
+
+
+def _pace():
+    """Global politeness gate: at most one outbound request per ~FETCH_MIN_DELAY
+    across all threads. Sleeping inside the lock is intentional — it serializes
+    request starts."""
+    import time
+    import random
+    with _pace_lock:
+        wait = random.uniform(FETCH_MIN_DELAY, FETCH_MAX_DELAY) - (
+            time.monotonic() - _last_fetch_time[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_fetch_time[0] = time.monotonic()
+
+
+class PacedFetcher(PoliteFetcher):
+    def fetch(self, *args, **kwargs):
+        _pace()
+        return super().fetch(*args, **kwargs)
+
+    def head(self, *args, **kwargs):
+        _pace()
+        return super().head(*args, **kwargs)
+
 
 def _make_fetcher() -> PoliteFetcher:
-    return PoliteFetcher(min_delay=FETCH_MIN_DELAY, max_delay=FETCH_MAX_DELAY)
+    # Per-fetcher delay stays minimal; the global _pace() does the real pacing.
+    return PacedFetcher(min_delay=0.1, max_delay=0.2)
 
 
 # ---------------------------------------------------------------------------
