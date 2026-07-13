@@ -76,48 +76,33 @@ def _rate_limit():
 # DB helpers
 # ---------------------------------------------------------------------------
 
-def get_signals_for_apollo(limit: int = 50):
-    """Get signals with a company URL but no Apollo contact info."""
+def get_companies_for_apollo(limit: int = 50):
+    """Companies with a credible URL but no Apollo contact, hottest first."""
     conn = get_connection(DB_PATH)
     rows = conn.execute("""
-        SELECT id, author_name, author_company_url, raw_json
-        FROM signals
-        WHERE author_company_url IS NOT NULL
-          AND author_company_url != ''
-          AND (raw_json NOT LIKE '%"apollo_contact"%'
-               OR raw_json LIKE '%"apollo_contact": null%')
-        ORDER BY
-            CASE WHEN urgency = 'hot' THEN 0
-                 WHEN urgency = 'warm' THEN 1
-                 ELSE 2 END,
-            timestamp DESC
+        SELECT c.id, c.name, c.url,
+               MIN(CASE s.urgency WHEN 'hot' THEN 0 WHEN 'warm' THEN 1 ELSE 2 END) AS pri
+        FROM companies c
+        JOIN signals s ON s.company_id = c.id
+        WHERE c.url IS NOT NULL AND c.url != ''
+          AND COALESCE(c.resolution_confidence, '') NOT IN ('rejected', 'unverified')
+          AND (c.contact_json IS NULL OR c.contact_json = '')
+        GROUP BY c.id
+        ORDER BY pri, MAX(s.timestamp) DESC
         LIMIT ?
     """, (limit,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def save_apollo_contact(signal_id: str, contact: dict):
-    """Save Apollo contact info to signal's raw_json metadata."""
+def save_apollo_contact(company_id: int, contact: dict):
+    """Save Apollo contact info on the company row."""
+    from db import update_company
     with _db_lock:
-        conn = get_connection(DB_PATH)
-        row = conn.execute(
-            "SELECT raw_json FROM signals WHERE id = ?", (signal_id,)
-        ).fetchone()
-        if row:
-            d = json.loads(row["raw_json"])
-            if "metadata" not in d:
-                d["metadata"] = {}
-            d["metadata"]["apollo_contact"] = contact
-            # Also set the email field if we got one
-            if contact.get("email"):
-                d["metadata"]["email"] = contact["email"]
-            conn.execute(
-                "UPDATE signals SET raw_json = ? WHERE id = ?",
-                (json.dumps(d), signal_id),
-            )
-        conn.commit()
-        conn.close()
+        fields = {"contact_json": json.dumps(contact)}
+        if contact.get("email"):
+            fields["email"] = contact["email"]
+        update_company(company_id, fields, db_path=DB_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -251,12 +236,12 @@ def pick_best_person(people: list[dict]) -> dict | None:
 # Worker
 # ---------------------------------------------------------------------------
 
-def enrich_one(signal: dict, index: int, total: int) -> dict:
-    """Enrich a single signal with Apollo contact data."""
-    name = signal["author_name"]
-    url = signal["author_company_url"]
+def enrich_one(company: dict, index: int, total: int) -> dict:
+    """Enrich a single company with Apollo contact data."""
+    name = company["name"]
+    url = company["url"]
     domain = extract_domain(url)
-    result = {"id": signal["id"], "name": name, "contact": None}
+    result = {"id": company["id"], "name": name, "contact": None}
 
     try:
         # Step 1: Search for people at this domain (free)
@@ -286,7 +271,7 @@ def enrich_one(signal: dict, index: int, total: int) -> dict:
                     log.info(f"[{index}/{total}] {name} ({domain}) -> "
                              f"{contact['name']} ({contact['title']}) "
                              f"<{contact['email']}>")
-                    save_apollo_contact(signal["id"], contact)
+                    save_apollo_contact(company["id"], contact)
                     result["contact"] = contact
                     return result
                 elif enriched:
@@ -300,7 +285,7 @@ def enrich_one(signal: dict, index: int, total: int) -> dict:
                     log.info(f"[{index}/{total}] {name} ({domain}) -> "
                              f"{contact['name']} ({contact['title']}) "
                              f"[no email]")
-                    save_apollo_contact(signal["id"], contact)
+                    save_apollo_contact(company["id"], contact)
                     result["contact"] = contact
                     return result
 
@@ -317,12 +302,12 @@ def enrich_one(signal: dict, index: int, total: int) -> dict:
             log.info(f"[{index}/{total}] {name} ({domain}) -> "
                      f"{contact['name']} ({contact['title']}) "
                      f"<{contact['email']}> [domain match]")
-            save_apollo_contact(signal["id"], contact)
+            save_apollo_contact(company["id"], contact)
             result["contact"] = contact
         else:
             log.info(f"[{index}/{total}] {name} ({domain}) -> no contact found")
             # Save empty so we don't retry
-            save_apollo_contact(signal["id"], {"name": "", "email": "", "title": ""})
+            save_apollo_contact(company["id"], {"name": "", "email": "", "title": ""})
 
     except Exception as e:
         log.warning(f"[{index}/{total}] Error for {name}: {e}")
@@ -351,18 +336,18 @@ def main():
 
     init_db(DB_PATH)
 
-    signals = get_signals_for_apollo(limit=args.limit)
-    log.info(f"Found {len(signals)} signals to enrich with Apollo (workers={args.workers})")
+    companies = get_companies_for_apollo(limit=args.limit)
+    log.info(f"Found {len(companies)} companies to enrich with Apollo (workers={args.workers})")
 
-    if not signals:
+    if not companies:
         return
 
     if args.dry_run:
-        for s in signals[:20]:
-            domain = extract_domain(s["author_company_url"])
-            log.info(f"  Would enrich: {s['author_name']} ({domain})")
-        if len(signals) > 20:
-            log.info(f"  ... and {len(signals) - 20} more")
+        for c in companies[:20]:
+            domain = extract_domain(c["url"])
+            log.info(f"  Would enrich: {c['name']} ({domain})")
+        if len(companies) > 20:
+            log.info(f"  ... and {len(companies) - 20} more")
         return
 
     found = 0
@@ -370,8 +355,8 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {
-            pool.submit(enrich_one, sig, i, len(signals)): sig
-            for i, sig in enumerate(signals, 1)
+            pool.submit(enrich_one, c, i, len(companies)): c
+            for i, c in enumerate(companies, 1)
         }
 
         try:
@@ -386,7 +371,7 @@ def main():
             pool.shutdown(wait=False, cancel_futures=True)
 
     log.info(f"Done. Found {found} contacts ({with_email} with email) "
-             f"out of {len(signals)} signals.")
+             f"out of {len(companies)} companies.")
 
 
 if __name__ == "__main__":

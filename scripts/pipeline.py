@@ -91,10 +91,39 @@ def step_classify():
     return classified
 
 
+def step_enrich(limit: int = 100):
+    """Link new signals to companies and resolve new companies' websites.
+
+    Incremental by design: migrate_companies is idempotent and fast, and
+    get_companies_to_resolve skips anything already attempted — so a cron
+    run only touches companies created since the last run.
+    """
+    log.info("=" * 60)
+    log.info("STEP 3: Enriching new companies")
+    log.info("=" * 60)
+
+    from scripts.migrate_companies import migrate
+    stats = migrate(DB_PATH)
+    log.info(f"Linked {stats['signals_linked']} signals, "
+             f"{stats['companies_created']} new companies")
+
+    from scripts.enrich import get_companies_to_resolve, process_company, _run_pool
+    companies = get_companies_to_resolve(limit)
+    if not companies:
+        log.info("No unresolved companies — skipping")
+        return 0
+
+    log.info(f"Resolving {len(companies)} companies")
+    results = _run_pool(companies, process_company, workers=2)
+    resolved = sum(1 for r in results if r["url"])
+    log.info(f"Enrichment complete. Resolved {resolved}/{len(companies)}.")
+    return resolved
+
+
 def step_export():
     """Export DB to JSON for the dashboard."""
     log.info("=" * 60)
-    log.info("STEP 3: Exporting to dashboard JSON")
+    log.info("STEP 4: Exporting to dashboard JSON")
     log.info("=" * 60)
 
     export_all(pretty=False)
@@ -113,6 +142,7 @@ def main():
     parser.add_argument("--apps", nargs="*", help="Only collect from these app slugs")
     parser.add_argument("--skip-collect", action="store_true", help="Skip collection, only classify + export")
     parser.add_argument("--skip-classify", action="store_true", help="Skip classification")
+    parser.add_argument("--skip-enrich", action="store_true", help="Skip company enrichment")
     args = parser.parse_args()
 
     log.info("Signal Listener pipeline starting")
@@ -126,6 +156,12 @@ def main():
             log.info("No new signals — skipping classification")
     elif not args.skip_classify:
         step_classify()
+
+    if not args.skip_enrich:
+        try:
+            step_enrich()
+        except Exception as e:
+            log.error(f"Enrichment failed (continuing to export): {e}")
 
     step_export()
     log.info("Pipeline complete.")
