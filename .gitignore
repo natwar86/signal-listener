@@ -4,6 +4,9 @@ __pycache__/
 *.pyo
 .env
 signals.db
+signals.db-shm
+signals.db-wal
+.claude/
 output/*/debug_html/
 output/*/progress.json
 output/*/reviews.jsonl
