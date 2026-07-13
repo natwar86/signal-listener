@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from db import init_db, get_signals, get_stats, get_connection
+from db import init_db, get_signals, get_stats, get_connection, get_company_map
 from config import DB_PATH, DASHBOARD_DATA_DIR
 
 logging.basicConfig(
@@ -25,15 +25,36 @@ logging.basicConfig(
 log = logging.getLogger("signal-listener")
 
 
+def overlay_company_data(signals: list[dict], companies: dict) -> list[dict]:
+    """Companies table is authoritative for url/email/contact — overlay it
+    onto each signal so the dashboard sees enrichment without per-signal
+    raw_json updates."""
+    for s in signals:
+        company = companies.get(s.get("company_id"))
+        if not company or company.get("resolution_confidence") == "rejected":
+            continue
+        if company.get("url"):
+            s.setdefault("author", {})["company_url"] = company["url"]
+        if company.get("email"):
+            s.setdefault("metadata", {}).setdefault("email", company["email"])
+        if company.get("contact_json"):
+            try:
+                s.setdefault("metadata", {})["apollo_contact"] = json.loads(company["contact_json"])
+            except json.JSONDecodeError:
+                pass
+    return signals
+
+
 def export_all(pretty: bool = False):
     """Export all signals and stats to JSON for the dashboard."""
     init_db(DB_PATH)
     DASHBOARD_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     indent = 2 if pretty else None
+    companies = get_company_map(DB_PATH)
 
     # Export all signals
-    signals = get_signals(limit=10000, db_path=DB_PATH)
+    signals = overlay_company_data(get_signals(limit=10000, db_path=DB_PATH), companies)
     signals_path = DASHBOARD_DATA_DIR / "signals.json"
     with open(signals_path, "w") as f:
         json.dump(signals, f, indent=indent, ensure_ascii=False)
@@ -53,14 +74,15 @@ def export_all(pretty: bool = False):
 
     for row in sources:
         source = row["source"]
-        source_signals = get_signals(source=source, limit=10000, db_path=DB_PATH)
+        source_signals = overlay_company_data(
+            get_signals(source=source, limit=10000, db_path=DB_PATH), companies)
         source_path = DASHBOARD_DATA_DIR / f"{source}.json"
         with open(source_path, "w") as f:
             json.dump(source_signals, f, indent=indent, ensure_ascii=False)
         log.info(f"  {source}: {len(source_signals)} signals -> {source_path}")
 
     # Export hot signals (separate file for alerts)
-    hot = get_signals(urgency="hot", limit=10000, db_path=DB_PATH)
+    hot = overlay_company_data(get_signals(urgency="hot", limit=10000, db_path=DB_PATH), companies)
     hot_path = DASHBOARD_DATA_DIR / "hot_signals.json"
     with open(hot_path, "w") as f:
         json.dump(hot, f, indent=indent, ensure_ascii=False)

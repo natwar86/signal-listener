@@ -5,14 +5,19 @@ Single file DB — no server, no infrastructure. Signals are stored as JSON
 blobs alongside indexed columns for fast filtering.
 """
 
+import re
 import json
 import sqlite3
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
 from processor.schema import Signal
 
 DEFAULT_DB_PATH = Path(__file__).parent / "signals.db"
+
+# Reviewer names that are store-generic placeholders, not real companies
+GENERIC_COMPANY_NAMES = {"my store", "my shop", "online store", "shopify store"}
 
 
 def get_connection(db_path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
@@ -68,9 +73,109 @@ def init_db(db_path: Path = DEFAULT_DB_PATH):
         CREATE INDEX IF NOT EXISTS idx_signals_market ON signals(market);
         CREATE INDEX IF NOT EXISTS idx_signals_rating ON signals(content_rating);
         CREATE INDEX IF NOT EXISTS idx_signals_classified ON signals(classified_at);
+
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,                 -- display name as seen in reviews
+            normalized_name TEXT NOT NULL UNIQUE,
+            domain TEXT,
+            url TEXT,
+            email TEXT,
+            contact_json TEXT,                  -- decision-maker contact (Apollo etc.)
+            resolution_source TEXT,             -- myshopify | exa | domain | restored_apr2 | manual
+            resolution_confidence TEXT,         -- verified | likely | unverified | rejected
+            verified_at TEXT,
+            enriched_at TEXT,
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain);
     """)
+    # company_id lands via ALTER because the signals table predates it
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(signals)")}
+    if "company_id" not in cols:
+        conn.execute("ALTER TABLE signals ADD COLUMN company_id INTEGER REFERENCES companies(id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_signals_company ON signals(company_id)")
     conn.commit()
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Companies
+# ---------------------------------------------------------------------------
+
+def normalize_company_name(name: str) -> str:
+    """Canonical key for a company: ascii, lowercase, no punctuation."""
+    if not name:
+        return ""
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def get_or_create_company(name: str, db_path: Path = DEFAULT_DB_PATH,
+                          conn: Optional[sqlite3.Connection] = None) -> Optional[int]:
+    """Return company id for a display name, creating the row if new.
+    Returns None for empty/generic names (e.g. 'My Store')."""
+    norm = normalize_company_name(name)
+    if not norm or norm in GENERIC_COMPANY_NAMES:
+        return None
+
+    own_conn = conn is None
+    if own_conn:
+        conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT id FROM companies WHERE normalized_name = ?", (norm,)
+        ).fetchone()
+        if row:
+            return row["id"]
+        cur = conn.execute(
+            "INSERT INTO companies (name, normalized_name) VALUES (?, ?)",
+            (name, norm),
+        )
+        if own_conn:
+            conn.commit()
+        return cur.lastrowid
+    finally:
+        if own_conn:
+            conn.close()
+
+
+def update_company(company_id: int, fields: dict, db_path: Path = DEFAULT_DB_PATH,
+                   conn: Optional[sqlite3.Connection] = None):
+    """Update company columns from a dict of {column: value}."""
+    allowed = {"domain", "url", "email", "contact_json", "resolution_source",
+               "resolution_confidence", "verified_at", "enriched_at", "notes"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    own_conn = conn is None
+    if own_conn:
+        conn = get_connection(db_path)
+    try:
+        sets = ", ".join(f"{k} = ?" for k in updates)
+        conn.execute(
+            f"UPDATE companies SET {sets}, updated_at = datetime('now') WHERE id = ?",
+            (*updates.values(), company_id),
+        )
+        if own_conn:
+            conn.commit()
+    finally:
+        if own_conn:
+            conn.close()
+
+
+def get_company_map(db_path: Path = DEFAULT_DB_PATH) -> dict:
+    """All companies keyed by id, for export joins."""
+    conn = get_connection(db_path)
+    rows = conn.execute("SELECT * FROM companies").fetchall()
+    conn.close()
+    return {r["id"]: dict(r) for r in rows}
 
 
 def insert_signal(signal: Signal, db_path: Path = DEFAULT_DB_PATH) -> bool:
@@ -236,13 +341,19 @@ def get_signals(
     params.extend([limit, offset])
 
     rows = conn.execute(f"""
-        SELECT raw_json FROM signals
+        SELECT raw_json, company_id FROM signals
         WHERE {where}
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?
     """, params).fetchall()
     conn.close()
-    return [json.loads(r["raw_json"]) for r in rows]
+
+    signals = []
+    for r in rows:
+        d = json.loads(r["raw_json"])
+        d["company_id"] = r["company_id"]
+        signals.append(d)
+    return signals
 
 
 def get_stats(db_path: Path = DEFAULT_DB_PATH) -> dict:
@@ -283,6 +394,15 @@ def get_stats(db_path: Path = DEFAULT_DB_PATH) -> dict:
     # Stores resolved
     stats["stores_resolved"] = conn.execute(
         "SELECT COUNT(*) FROM signals WHERE author_company_url IS NOT NULL AND author_company_url != ''"
+    ).fetchone()[0]
+
+    # Companies (deduped stores)
+    stats["companies_total"] = conn.execute("SELECT COUNT(*) FROM companies").fetchone()[0]
+    stats["companies_resolved"] = conn.execute(
+        "SELECT COUNT(*) FROM companies WHERE url IS NOT NULL AND url != ''"
+    ).fetchone()[0]
+    stats["companies_with_email"] = conn.execute(
+        "SELECT COUNT(*) FROM companies WHERE email IS NOT NULL AND email != ''"
     ).fetchone()[0]
 
     conn.close()
