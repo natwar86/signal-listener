@@ -86,16 +86,33 @@ REDDIT_KEYWORDS = [
 
 CLASSIFICATION_MODEL = "claude-haiku-4-5-20251001"
 
-SALTBOX_MARKETS = [
+# Major US metros for geo-tagging signals (stored in the signals.market column).
+# Buyers of the feed are location-sensitive (co-warehouses operate per-metro).
+US_METROS = [
     "atlanta", "dallas", "denver", "houston", "austin",
     "nashville", "charlotte", "chicago", "salt_lake_city",
-    "phoenix", "san_antonio",
+    "phoenix", "san_antonio", "los_angeles", "new_york",
+    "miami", "fort_lauderdale", "seattle", "san_francisco",
+    "boston", "philadelphia", "minneapolis", "washington_dc",
+    "portland", "las_vegas", "other_us", "non_us",
 ]
 
 COMPETITORS = {
     "3pl": ["ShipBob", "ShipMonk", "ShipHero", "Flexport", "Flowspace", "Fulfillrite"],
     "cowarehouse": ["ReadySpaces", "Cubework", "WareSpace", "Portal Warehousing", "Loloft", "FlexEtc"],
     "shipping": ["ShipStation", "Shippo", "Pirate Ship", "Easyship", "Veeqo"],
+}
+
+# Display names for reviewed Shopify apps (slug -> brand), used to tell the
+# classifier which company a review is about.
+SHOPIFY_APP_NAMES = {
+    "shipbob": "ShipBob",
+    "shiphero": "ShipHero",
+    "shipmonk": "ShipMonk",
+    "fulfillrite-order-fulfillment": "Fulfillrite",
+    "shipstation": "ShipStation",
+    "easyship": "Easyship",
+    "skusavvy": "SKUSavvy",
 }
 
 # ---------------------------------------------------------------------------

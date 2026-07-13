@@ -22,7 +22,7 @@ VALID_SOURCES = {
 VALID_SENTIMENTS = {"negative", "neutral", "positive"}
 VALID_URGENCIES = {"hot", "warm", "cold"}
 VALID_PAIN_TYPES = {"cost", "control", "service_quality", "scale", "speed", "customization"}
-VALID_INTENTS = {"switching", "exploring", "complaining", "asking", "hiring", "scaling"}
+VALID_INTENTS = {"switching", "exploring", "complaining", "asking", "hiring", "scaling", "praising"}
 
 
 @dataclass
@@ -46,7 +46,7 @@ class Classification:
     urgency: Optional[str] = None            # hot / warm / cold
     pain_types: list[str] = field(default_factory=list)
     competitors_mentioned: list[str] = field(default_factory=list)
-    market: Optional[str] = None             # one of SALTBOX_MARKETS or "unknown"
+    market: Optional[str] = None             # one of US_METROS or "unknown"
     intent: Optional[str] = None             # switching / exploring / etc.
     summary: Optional[str] = None            # AI-generated one-liner
 

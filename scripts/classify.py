@@ -15,9 +15,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from db import init_db, get_unclassified_signals, update_classification, get_stats
+from db import init_db, get_unclassified_signals, update_classification, get_stats, get_connection
 from processor.classifier import classify_signal
 from config import DB_PATH, ANTHROPIC_API_KEY
+
+
+def get_all_signals_for_reclassify(limit: int, db_path=DB_PATH) -> list[dict]:
+    """All signals with content, oldest classification first — for full re-runs
+    after a prompt change."""
+    conn = get_connection(db_path)
+    rows = conn.execute("""
+        SELECT id, source, content_body, content_rating, author_name, author_company,
+               raw_json
+        FROM signals
+        WHERE content_body != ''
+        ORDER BY classified_at ASC NULLS FIRST
+        LIMIT ?
+    """, (limit,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +46,8 @@ log = logging.getLogger("signal-listener")
 def main():
     parser = argparse.ArgumentParser(description="Classify unclassified signals")
     parser.add_argument("--limit", type=int, default=100, help="Max signals to classify")
+    parser.add_argument("--reclassify", action="store_true",
+                        help="Re-classify already-classified signals too (after prompt changes)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be classified")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -42,8 +60,12 @@ def main():
         sys.exit(1)
 
     init_db(DB_PATH)
-    signals = get_unclassified_signals(limit=args.limit, db_path=DB_PATH)
-    log.info(f"Found {len(signals)} unclassified signals")
+    if args.reclassify:
+        signals = get_all_signals_for_reclassify(limit=args.limit)
+        log.info(f"Re-classifying {len(signals)} signals (oldest classification first)")
+    else:
+        signals = get_unclassified_signals(limit=args.limit, db_path=DB_PATH)
+        log.info(f"Found {len(signals)} unclassified signals")
 
     if not signals:
         log.info("Nothing to classify.")

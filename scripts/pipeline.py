@@ -135,8 +135,23 @@ def step_export():
         log.info(f"Urgency: {stats['by_urgency']}")
 
 
+def write_heartbeat(run_report: dict):
+    """Persist a machine-readable record of this run so staleness and silent
+    scraper breakage are visible on the dashboard (served at /data/last_run.json)."""
+    import json
+    from datetime import datetime, timezone
+
+    run_report["finished_at"] = datetime.now(timezone.utc).isoformat()
+    DASHBOARD_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    path = DASHBOARD_DATA_DIR / "last_run.json"
+    path.write_text(json.dumps(run_report, indent=2))
+    log.info(f"Heartbeat written to {path}")
+
+
 def main():
     import argparse
+    from datetime import datetime, timezone
+
     parser = argparse.ArgumentParser(description="Run the signal collection pipeline")
     parser.add_argument("--max-pages", type=int, help="Max pages per app (for testing)")
     parser.add_argument("--apps", nargs="*", help="Only collect from these app slugs")
@@ -148,22 +163,41 @@ def main():
     log.info("Signal Listener pipeline starting")
     init_db(DB_PATH)
 
-    if not args.skip_collect:
-        new = step_collect(max_pages=args.max_pages, apps=args.apps)
-        if new > 0 and not args.skip_classify:
-            step_classify()
-        elif new == 0:
-            log.info("No new signals — skipping classification")
-    elif not args.skip_classify:
-        step_classify()
+    report = {"started_at": datetime.now(timezone.utc).isoformat(),
+              "collected": None, "classified": None, "enriched": None,
+              "errors": []}
 
-    if not args.skip_enrich:
-        try:
-            step_enrich()
-        except Exception as e:
-            log.error(f"Enrichment failed (continuing to export): {e}")
+    try:
+        if not args.skip_collect:
+            report["collected"] = step_collect(max_pages=args.max_pages, apps=args.apps)
+            if report["collected"] > 0 and not args.skip_classify:
+                report["classified"] = step_classify()
+            elif report["collected"] == 0:
+                log.info("No new signals — skipping classification")
+        elif not args.skip_classify:
+            report["classified"] = step_classify()
 
-    step_export()
+        if not args.skip_enrich:
+            try:
+                report["enriched"] = step_enrich()
+            except Exception as e:
+                log.error(f"Enrichment failed (continuing to export): {e}")
+                report["errors"].append(f"enrich: {e}")
+
+        step_export()
+
+        stats = get_stats(DB_PATH)
+        report["total_signals"] = stats["total_signals"]
+        report["companies_resolved"] = stats.get("companies_resolved")
+        report["status"] = "ok" if not report["errors"] else "partial"
+    except Exception as e:
+        log.error(f"Pipeline failed: {e}")
+        report["errors"].append(str(e))
+        report["status"] = "failed"
+        raise
+    finally:
+        write_heartbeat(report)
+
     log.info("Pipeline complete.")
 
 

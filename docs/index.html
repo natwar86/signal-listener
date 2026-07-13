@@ -559,6 +559,7 @@
   <p class="subtitle">
     Market intelligence from Shopify app reviews. Monitoring ShipBob, ShipHero, ShipMonk, Fulfillrite, ShipStation, Easyship &amp; SKUSavvy.
   </p>
+  <p class="subtitle" id="freshness" style="font-size: 0.8em; opacity: 0.7;"></p>
 </div>
 
 <div class="stats-strip" id="stats-strip">
@@ -791,6 +792,17 @@
       if (statsResp.ok) {
         stats = await statsResp.json();
       }
+
+      // Pipeline freshness (best-effort; file may not exist yet)
+      fetch('data/last_run.json').then(r => r.ok ? r.json() : null).then(run => {
+        if (!run || !run.finished_at) return;
+        const days = Math.floor((Date.now() - new Date(run.finished_at)) / 86400000);
+        const when = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+        const status = run.status === 'ok' ? '' : ` (status: ${run.status})`;
+        document.getElementById('freshness').textContent =
+          `Pipeline last ran ${when}${status}` +
+          (run.collected != null ? ` — ${run.collected} new signals` : '');
+      }).catch(() => {});
 
       if (allSignals.length === 0) {
         $loading.innerHTML = '<div class="loading-text">No signals found. Run the collector and export scripts first.</div>';
