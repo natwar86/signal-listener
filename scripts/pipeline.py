@@ -62,12 +62,16 @@ def step_collect(max_pages=None, apps=None):
         from collectors.trustpilot import collect_trustpilot_reviews, has_existing_signals
         # First run backfills everything; cron deltas only fetch last 30 days
         delta = has_existing_signals(DB_PATH)
+        # Backfill ceiling is sized to the pessimistic pre-run estimate
+        # (6 brands x 3000 reviews ~= $10); actual spend is bounded by real
+        # review counts (~3.5k total ~= $2) and by Apify's own
+        # maxTotalChargeUsd, so the ceiling never gets close to charging.
         signals = collect_trustpilot_reviews(
             TRUSTPILOT_COMPANIES,
             max_reviews_per_company=200 if delta else 0,
             date_preset="last30days" if delta else "",
             dry_run=False,
-            max_cost_usd=1.00 if delta else 5.00,
+            max_cost_usd=1.00 if delta else 12.00,
             db_path=DB_PATH,
         )
         total_new += len(signals)
