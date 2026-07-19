@@ -84,9 +84,10 @@ def init_db(db_path: Path = DEFAULT_DB_PATH):
             email TEXT,
             contact_json TEXT,                  -- decision-maker contact (Apollo etc.)
             resolution_source TEXT,             -- myshopify | exa | domain | restored_apr2 | manual
-            resolution_confidence TEXT,         -- verified | likely | unverified | rejected
+            resolution_confidence TEXT,         -- verified | likely | unverified | rejected | exhausted
             verified_at TEXT,
             enriched_at TEXT,
+            resolve_attempts INTEGER DEFAULT 0, -- failed resolution tries; 'exhausted' at 5
             notes TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT
@@ -99,6 +100,9 @@ def init_db(db_path: Path = DEFAULT_DB_PATH):
     if "company_id" not in cols:
         conn.execute("ALTER TABLE signals ADD COLUMN company_id INTEGER REFERENCES companies(id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_signals_company ON signals(company_id)")
+    company_cols = {r[1] for r in conn.execute("PRAGMA table_info(companies)")}
+    if "resolve_attempts" not in company_cols:
+        conn.execute("ALTER TABLE companies ADD COLUMN resolve_attempts INTEGER DEFAULT 0")
     conn.commit()
     conn.close()
 
@@ -151,7 +155,8 @@ def update_company(company_id: int, fields: dict, db_path: Path = DEFAULT_DB_PAT
                    conn: Optional[sqlite3.Connection] = None):
     """Update company columns from a dict of {column: value}."""
     allowed = {"domain", "url", "email", "contact_json", "resolution_source",
-               "resolution_confidence", "verified_at", "enriched_at", "notes"}
+               "resolution_confidence", "verified_at", "enriched_at",
+               "resolve_attempts", "notes"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return

@@ -16,6 +16,8 @@ Every resolved URL gets a verification pass (resolution_confidence):
   likely     — name matches but no Shopify fingerprint (replatformed?)
   unverified — Shopify site but name doesn't match (possible wrong store)
   rejected   — neither matches; export drops these from the dashboard
+  exhausted  — resolution failed MAX_RESOLVE_ATTEMPTS times; never retried
+               automatically (only via --retry-failed)
 
 Usage:
     python -m scripts.enrich                  # resolve+verify+email, 50 companies
@@ -52,6 +54,10 @@ logging.basicConfig(
 log = logging.getLogger("signal-listener")
 
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+
+# After this many failed resolutions a company is tagged 'exhausted' and
+# excluded from future runs (override with --retry-failed).
+MAX_RESOLVE_ATTEMPTS = 5
 
 SKIP_EMAIL_DOMAINS = {
     "example.com", "sentry.io", "wixpress.com", "shopify.com",
@@ -134,12 +140,20 @@ def _make_fetcher() -> PoliteFetcher:
 
 def get_companies_to_resolve(limit: int, hot_warm_only: bool = False,
                              retry_failed: bool = False, db_path=None):
-    """Companies without a URL, hottest signals first."""
+    """Companies without a URL, hottest signals first.
+
+    Never-attempted companies come before failed retries; a company that has
+    failed MAX_RESOLVE_ATTEMPTS times is tagged 'exhausted' and skipped for
+    good. --retry-failed lifts both the cap and the exhausted tag."""
     conn = get_connection(db_path or DB_PATH)
-    retry_clause = "" if retry_failed else "AND c.enriched_at IS NULL"
+    retry_clause = "" if retry_failed else (
+        f"AND COALESCE(c.resolve_attempts, 0) < {MAX_RESOLVE_ATTEMPTS} "
+        "AND COALESCE(c.resolution_confidence, '') != 'exhausted'"
+    )
     hw_clause = "AND pri <= 1" if hot_warm_only else ""
     rows = conn.execute(f"""
         SELECT c.id, c.name,
+               COALESCE(c.resolve_attempts, 0) AS resolve_attempts,
                MIN(CASE s.urgency WHEN 'hot' THEN 0 WHEN 'warm' THEN 1 ELSE 2 END) AS pri,
                MAX(s.timestamp) AS latest
         FROM companies c
@@ -149,7 +163,7 @@ def get_companies_to_resolve(limit: int, hot_warm_only: bool = False,
           {retry_clause}
         GROUP BY c.id
         HAVING 1 {hw_clause}
-        ORDER BY pri, latest DESC
+        ORDER BY pri, (c.enriched_at IS NULL) DESC, COALESCE(c.resolve_attempts, 0), latest DESC
         LIMIT ?
     """, (limit,)).fetchall()
     conn.close()
@@ -434,10 +448,17 @@ def process_company(company: dict, index: int, total: int) -> dict:
                 source = "domain"
 
         if not url:
-            log.info(f"[{index}/{total}] {name} -> not found")
-            save_company(company["id"], {
-                "enriched_at": _now(), "notes": "resolution failed",
-            })
+            attempts = (company.get("resolve_attempts") or 0) + 1
+            fields = {
+                "enriched_at": _now(),
+                "resolve_attempts": attempts,
+                "notes": f"resolution failed (attempt {attempts})",
+            }
+            if attempts >= MAX_RESOLVE_ATTEMPTS:
+                fields["resolution_confidence"] = "exhausted"
+            log.info(f"[{index}/{total}] {name} -> not found "
+                     f"(attempt {attempts}/{MAX_RESOLVE_ATTEMPTS})")
+            save_company(company["id"], fields)
             return result
 
         # Verify + scrape with a single homepage fetch
@@ -567,7 +588,8 @@ def main():
     parser.add_argument("--emails-only", action="store_true",
                         help="Only scrape emails for resolved companies")
     parser.add_argument("--retry-failed", action="store_true",
-                        help="Retry companies whose resolution failed before")
+                        help="Ignore the attempt cap and the 'exhausted' tag "
+                             "(failures under the cap retry automatically)")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
