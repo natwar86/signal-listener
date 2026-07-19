@@ -122,10 +122,37 @@ SHOPIFY_APP_NAMES = {
 APIFY_REVIEWS_ACTOR = "compass/google-maps-reviews-scraper"
 
 # Pay-per-event pricing (USD) — used for cost estimation guard rails.
-# Source: https://apify.com/compass/google-maps-reviews-scraper
-APIFY_COST_PER_RUN = 0.007
-APIFY_COST_PER_PLACE = 0.004
-APIFY_COST_PER_REVIEW = 0.0005
+# Verified 2026-07-19 via api.apify.com/v2/acts/compass~google-maps-reviews-scraper:
+# $0.00005 per actor start (per GB, 1 GB default) + $0.0006/review on the free
+# plan; there is NO per-place charge on this actor. (The old constants here
+# were from compass/crawler-google-places, a different actor.)
+APIFY_COST_PER_RUN = 0.00005
+APIFY_COST_PER_PLACE = 0.0
+APIFY_COST_PER_REVIEW = 0.0006
+
+# ---------------------------------------------------------------------------
+# Trustpilot (Apify automation-lab/trustpilot)
+# ---------------------------------------------------------------------------
+
+APIFY_TRUSTPILOT_ACTOR = "automation-lab/trustpilot"
+
+# Pay-per-event (USD), free-plan tier, verified 2026-07-19 via
+# api.apify.com/v2/acts/automation-lab~trustpilot
+APIFY_TP_COST_PER_RUN = 0.005
+APIFY_TP_COST_PER_REVIEW = 0.000575
+
+# Target brands. url must be the exact Trustpilot review-page URL — business
+# units are keyed inconsistently (some with www., some without), and the
+# actor returns 0 reviews for a slug variant that doesn't exist.
+TRUSTPILOT_COMPANIES: list[dict] = [
+    # Slugs verified by probe run 2026-07-19; skusavvy.com has no Trustpilot page.
+    {"name": "ShipStation", "url": "https://www.trustpilot.com/review/www.shipstation.com"},  # 628 reviews
+    {"name": "ShipBob", "url": "https://www.trustpilot.com/review/shipbob.com"},              # 1014
+    {"name": "ShipHero", "url": "https://www.trustpilot.com/review/shiphero.com"},            # 611
+    {"name": "ShipMonk", "url": "https://www.trustpilot.com/review/shipmonk.com"},            # 418
+    {"name": "Easyship", "url": "https://www.trustpilot.com/review/www.easyship.com"},        # 684
+    {"name": "Fulfillrite", "url": "https://www.trustpilot.com/review/fulfillrite.com"},      # 153
+]
 
 # Target places. Each entry: {"name": str, "url": str}
 # URLs use Google Maps search format with company name + city/address —

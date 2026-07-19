@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db import init_db, get_stats
 from config import (
-    DB_PATH, DASHBOARD_DATA_DIR, SHOPIFY_APPS,
+    DB_PATH, DASHBOARD_DATA_DIR, SHOPIFY_APPS, TRUSTPILOT_COMPANIES,
     SHOPIFY_MIN_DELAY, SHOPIFY_MAX_DELAY, ANTHROPIC_API_KEY,
 )
 from collectors.base import PoliteFetcher
@@ -32,7 +32,7 @@ log = logging.getLogger("signal-listener")
 
 
 def step_collect(max_pages=None, apps=None):
-    """Collect reviews from all configured Shopify apps."""
+    """Collect reviews from all configured Shopify apps, then Trustpilot."""
     log.info("=" * 60)
     log.info("STEP 1: Collecting Shopify reviews")
     log.info("=" * 60)
@@ -56,6 +56,23 @@ def step_collect(max_pages=None, apps=None):
         log.error(f"Collection error: {e}")
     finally:
         fetcher.close()
+
+    log.info("Collecting Trustpilot reviews")
+    try:
+        from collectors.trustpilot import collect_trustpilot_reviews, has_existing_signals
+        # First run backfills everything; cron deltas only fetch last 30 days
+        delta = has_existing_signals(DB_PATH)
+        signals = collect_trustpilot_reviews(
+            TRUSTPILOT_COMPANIES,
+            max_reviews_per_company=200 if delta else 0,
+            date_preset="last30days" if delta else "",
+            dry_run=False,
+            max_cost_usd=1.00 if delta else 5.00,
+            db_path=DB_PATH,
+        )
+        total_new += len(signals)
+    except Exception as e:
+        log.error(f"Trustpilot collection error: {e}")
 
     log.info(f"Collection complete. {total_new} new signals.")
     return total_new

@@ -88,6 +88,8 @@ def _subject_of(signal_dict: dict, metadata: dict) -> str:
         return SHOPIFY_APP_NAMES.get(slug, slug or "unknown")
     if source == "google_maps":
         return metadata.get("place_brand") or metadata.get("place_name") or "unknown"
+    if source == "trustpilot":
+        return metadata.get("company_brand") or metadata.get("company_domain") or "unknown"
     return "unknown"
 
 

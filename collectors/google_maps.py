@@ -1,8 +1,9 @@
 """
 Google Maps reviews collector via Apify compass/google-maps-reviews-scraper.
 
-Pay-per-event pricing: $0.007/run + $0.004/place + $0.0005/review.
-At ~30-50 places × 200 reviews each, a full backfill is roughly $5.
+Pay-per-event pricing (verified 2026-07-19): $0.00005/start + $0.0006/review,
+no per-place charge. At ~30-50 places × 200 reviews each, a full backfill
+is roughly $4-6; delta runs are pennies and fit inside Apify's $5/mo free credit.
 
 Safety:
   - Defaults to dry-run (no API call) — pass dry_run=False to actually scrape.
