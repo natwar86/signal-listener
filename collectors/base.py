@@ -28,6 +28,18 @@ HEADERS = {
 }
 
 
+def apify_run_info(run) -> tuple[str, str]:
+    """Normalize ApifyClient .call() results across client versions:
+    v1 returns a dict with camelCase keys, v3 returns a pydantic Run model
+    with snake_case attributes. Returns (status, default_dataset_id)."""
+    if run is None:
+        return "", ""
+    if isinstance(run, dict):
+        return str(run.get("status") or ""), run.get("defaultDatasetId") or ""
+    status = getattr(run, "status", "")
+    return str(status or ""), getattr(run, "default_dataset_id", "") or ""
+
+
 class PoliteFetcher:
     """HTTP client with delays, retries, and exponential backoff."""
 

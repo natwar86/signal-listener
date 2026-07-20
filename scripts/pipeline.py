@@ -66,9 +66,12 @@ def step_collect(max_pages=None, apps=None):
         # (6 brands x 3000 reviews ~= $10); actual spend is bounded by real
         # review counts (~3.5k total ~= $2) and by Apify's own
         # maxTotalChargeUsd, so the ceiling never gets close to charging.
+        # Backfill uses an explicit large cap: the actor silently caps at 200
+        # per brand when maxReviewsPerCompany=0, despite its schema saying
+        # 0 means unlimited (observed 2026-07-19).
         signals = collect_trustpilot_reviews(
             TRUSTPILOT_COMPANIES,
-            max_reviews_per_company=200 if delta else 0,
+            max_reviews_per_company=200 if delta else 1500,
             date_preset="last30days" if delta else "",
             dry_run=False,
             max_cost_usd=1.00 if delta else 12.00,

@@ -23,6 +23,7 @@ from typing import Optional
 
 from processor.schema import Signal, Author, Content
 from db import insert_signal, get_connection
+from collectors.base import apify_run_info
 from config import (
     APIFY_API_TOKEN,
     APIFY_TRUSTPILOT_ACTOR,
@@ -167,14 +168,15 @@ def collect_trustpilot_reviews(
     log.info(f"Calling actor {APIFY_TRUSTPILOT_ACTOR} for {len(companies)} brands...")
     run = client.actor(APIFY_TRUSTPILOT_ACTOR).call(run_input=run_input)
 
-    if not run or run.get("status") != "SUCCEEDED":
-        log.error(f"Actor run failed or did not succeed: {run}")
+    status, dataset_id = apify_run_info(run)
+    if "SUCCEEDED" not in status or not dataset_id:
+        log.error(f"Actor run failed or did not succeed: status={status!r}")
         return []
 
     new_signals: list[Signal] = []
     total_seen = 0
     skipped_no_text = 0
-    for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    for item in client.dataset(dataset_id).iterate_items():
         total_seen += 1
         signal = review_to_signal(item)
         if signal is None:

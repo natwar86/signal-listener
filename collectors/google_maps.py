@@ -16,6 +16,7 @@ from typing import Optional
 
 from processor.schema import Signal, Author, Content
 from db import insert_signal, get_connection
+from collectors.base import apify_run_info
 from config import (
     APIFY_API_TOKEN,
     APIFY_REVIEWS_ACTOR,
@@ -228,18 +229,19 @@ def collect_google_maps_reviews(
     )
     run = client.actor(APIFY_REVIEWS_ACTOR).call(run_input=run_input)
 
-    if not run or run.get("status") != "SUCCEEDED":
-        log.error(f"Actor run failed or did not succeed: {run}")
+    status, dataset_id = apify_run_info(run)
+    if "SUCCEEDED" not in status or not dataset_id:
+        log.error(f"Actor run failed or did not succeed: status={status!r}")
         return []
 
-    log.info(f"Run finished. Dataset: {run['defaultDatasetId']}")
+    log.info(f"Run finished. Dataset: {dataset_id}")
 
     name_by_url = {p["url"]: p["name"] for p in places}
 
     new_signals: list[Signal] = []
     total_seen = 0
     skipped_no_text = 0
-    for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+    for item in client.dataset(dataset_id).iterate_items():
         total_seen += 1
         place_url = item.get("url") or item.get("placeUrl") or ""
         name_fallback = name_by_url.get(place_url, "")
