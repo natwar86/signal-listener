@@ -16,7 +16,8 @@ from typing import Optional
 VALID_SOURCES = {
     "shopify_reviews", "reddit", "google_maps", "job_postings",
     "crunchbase", "twitter", "amazon_forums", "trustpilot",
-    "bbb", "linkedin", "macro", "shopify_community", "youtube",
+    "g2", "capterra", "bbb", "linkedin", "macro",
+    "shopify_community", "youtube",
 }
 
 VALID_SENTIMENTS = {"negative", "neutral", "positive"}

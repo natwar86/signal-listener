@@ -116,6 +116,25 @@ SHOPIFY_APP_NAMES = {
 }
 
 # ---------------------------------------------------------------------------
+# G2 + Capterra (Apify zen-studio/software-review-scraper)
+# ---------------------------------------------------------------------------
+
+APIFY_SOFTWARE_REVIEWS_ACTOR = "zen-studio/software-review-scraper"
+
+# Pay-per-event (USD), free tier, verified 2026-07-20 via
+# api.apify.com/v2/acts/zen-studio~software-review-scraper.
+# NOTE: no date filter and maxResults floors at 100/brand, so every run
+# re-pays for the newest slice — the pipeline runs this monthly, not per-cron.
+APIFY_SR_COST_PER_RUN = 0.05
+APIFY_SR_COST_PER_REVIEW = 0.00499
+
+# Brand names are free-text queries the actor resolves to products; the
+# collector drops results whose productName doesn't match the brand.
+SOFTWARE_REVIEW_BRANDS = [
+    "ShipStation", "ShipBob", "ShipHero", "ShipMonk", "Easyship",
+]
+
+# ---------------------------------------------------------------------------
 # Google Maps (Apify compass/google-maps-reviews-scraper)
 # ---------------------------------------------------------------------------
 
@@ -191,6 +210,42 @@ GOOGLE_MAPS_PLACES: list[dict] = [
      "url": "https://www.google.com/maps/search/WareSpace+warehouse+Austin+TX"},
     {"name": "Portal Warehousing - Brooklyn",
      "url": "https://www.google.com/maps/search/Portal+Warehousing+Brooklyn+NY"},
+
+    # --- Expansion 2026-07-20: addresses verified via company sites/press
+    # releases/LoopNet. WareSpace's two new CA sites are in lease-up and sit
+    # inside the Cubework/ReadySpaces angry-reviewer cluster (buyer #3 pitch).
+    {"name": "WareSpace - Santa Ana",
+     "url": "https://www.google.com/maps/search/WareSpace+2601+S+Garnsey+St+Santa+Ana+CA"},
+    {"name": "WareSpace - Santa Fe Springs",
+     "url": "https://www.google.com/maps/search/WareSpace+13711+Freeway+Dr+Santa+Fe+Springs+CA"},
+    {"name": "WareSpace - Houston",
+     "url": "https://www.google.com/maps/search/WareSpace+10795+Hammerly+Blvd+Houston+TX"},
+    {"name": "WareSpace - Phoenix",
+     "url": "https://www.google.com/maps/search/WareSpace+9801+S+51st+St+Phoenix+AZ"},
+    {"name": "Cubework - City of Industry (Turnbull)",
+     "url": "https://www.google.com/maps/search/Cubework+900+Turnbull+Canyon+Rd+City+of+Industry+CA"},
+    {"name": "Cubework - City of Industry (Stimson)",
+     "url": "https://www.google.com/maps/search/Cubework+347+S+Stimson+Ave+City+of+Industry+CA"},
+    {"name": "Cubework - City of Industry (Azusa)",
+     "url": "https://www.google.com/maps/search/Cubework+929+Azusa+Ave+City+of+Industry+CA"},
+    {"name": "Cubework - Ontario Airport",
+     "url": "https://www.google.com/maps/search/Cubework+3950+E+Airport+Dr+Ontario+CA"},
+    {"name": "Cubework - Ontario (Doubleday)",
+     "url": "https://www.google.com/maps/search/Cubework+1001+Doubleday+Ave+Ontario+CA"},
+    {"name": "Cubework - Irvine",
+     "url": "https://www.google.com/maps/search/Cubework+2323+Main+St+Irvine+CA"},
+    {"name": "ReadySpaces - San Jose",
+     "url": "https://www.google.com/maps/search/ReadySpaces+205+E+Alma+Ave+San+Jose+CA"},
+    {"name": "ReadySpaces - Santa Clara",
+     "url": "https://www.google.com/maps/search/ReadySpaces+1185+Campbell+Ave+San+Jose+CA"},
+    {"name": "ReadySpaces - Los Angeles (Downtown)",
+     "url": "https://www.google.com/maps/search/ReadySpaces+1919+Vineburn+Ave+Los+Angeles+CA"},
+    {"name": "ReadySpaces - South Gate",
+     "url": "https://www.google.com/maps/search/ReadySpaces+5625+Firestone+Blvd+South+Gate+CA"},
+    {"name": "ReadySpaces - Gardena",
+     "url": "https://www.google.com/maps/search/ReadySpaces+153+W+Rosecrans+Ave+Gardena+CA"},
+    {"name": "ReadySpaces - Northridge",
+     "url": "https://www.google.com/maps/search/ReadySpaces+21350+Lassen+St+Chatsworth+CA"},
 
     # --- ShipMonk (HQ-anchored 3PL, proven high signal density) ---
     {"name": "ShipMonk - Fort Lauderdale, FL",

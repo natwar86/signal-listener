@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from db import init_db, get_stats
 from config import (
     DB_PATH, DASHBOARD_DATA_DIR, SHOPIFY_APPS, TRUSTPILOT_COMPANIES,
+    GOOGLE_MAPS_PLACES, SOFTWARE_REVIEW_BRANDS,
     SHOPIFY_MIN_DELAY, SHOPIFY_MAX_DELAY, ANTHROPIC_API_KEY,
 )
 from collectors.base import PoliteFetcher
@@ -80,6 +81,59 @@ def step_collect(max_pages=None, apps=None):
         total_new += len(signals)
     except Exception as e:
         log.error(f"Trustpilot collection error: {e}")
+
+    log.info("Collecting Google Maps reviews")
+    try:
+        import json
+        from collectors.google_maps import collect_google_maps_reviews, get_latest_review_date
+        # Places already backfilled once are tracked on the volume; anything
+        # new in GOOGLE_MAPS_PLACES gets a full pull on its first run, then
+        # everything rides the delta path.
+        flag_path = Path(DB_PATH).parent / "gmaps_backfilled.json"
+        done = set(json.loads(flag_path.read_text())) if flag_path.exists() else set()
+        new_places = [p for p in GOOGLE_MAPS_PLACES if p["name"] not in done]
+        if new_places:
+            log.info(f"Backfilling {len(new_places)} new Google Maps places")
+            signals = collect_google_maps_reviews(
+                new_places, max_reviews_per_place=300,
+                dry_run=False, max_cost_usd=8.00, db_path=DB_PATH,
+            )
+            total_new += len(signals)
+            done.update(p["name"] for p in new_places)
+            flag_path.write_text(json.dumps(sorted(done), indent=1))
+        else:
+            start = get_latest_review_date(DB_PATH)
+            signals = collect_google_maps_reviews(
+                GOOGLE_MAPS_PLACES, max_reviews_per_place=100,
+                reviews_start_date=(start or "")[:10] or None,
+                dry_run=False, max_cost_usd=3.00, db_path=DB_PATH,
+            )
+            total_new += len(signals)
+    except Exception as e:
+        log.error(f"Google Maps collection error: {e}")
+
+    log.info("Collecting G2/Capterra reviews")
+    try:
+        from datetime import datetime, timezone, timedelta
+        from collectors.software_reviews import collect_software_reviews
+        # Monthly cadence: the actor has no date filter and a 100-review
+        # floor per brand, so every run re-pays for the newest slice.
+        # First run backfills 400/brand; monthly refreshes take 100/brand.
+        flag_path = Path(DB_PATH).parent / "g2capterra_last_run.txt"
+        last = (datetime.fromisoformat(flag_path.read_text().strip())
+                if flag_path.exists() else None)
+        if last is None or datetime.now(timezone.utc) - last > timedelta(days=28):
+            signals = collect_software_reviews(
+                SOFTWARE_REVIEW_BRANDS,
+                max_reviews_per_brand=400 if last is None else 100,
+                dry_run=False, max_cost_usd=15.00, db_path=DB_PATH,
+            )
+            total_new += len(signals)
+            flag_path.write_text(datetime.now(timezone.utc).isoformat())
+        else:
+            log.info(f"Skipping G2/Capterra — last run {last.date()}, monthly cadence")
+    except Exception as e:
+        log.error(f"G2/Capterra collection error: {e}")
 
     log.info(f"Collection complete. {total_new} new signals.")
     return total_new
