@@ -95,7 +95,9 @@ def step_classify():
         log.warning("ANTHROPIC_API_KEY not set — skipping classification")
         return 0
 
-    signals = get_unclassified_signals(limit=500, db_path=DB_PATH)
+    # 4000 covers the Trustpilot backfill in one run; the cheap-path handles
+    # short 5-star reviews without API calls, normal runs see <10 signals
+    signals = get_unclassified_signals(limit=4000, db_path=DB_PATH)
     log.info(f"Found {len(signals)} unclassified signals")
 
     if not signals:
