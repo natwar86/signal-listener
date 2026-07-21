@@ -149,6 +149,7 @@ def collect_software_reviews(
 
     client = ApifyClient(APIFY_API_TOKEN)
     new_signals: list[Signal] = []
+    succeeded_brands = 0
 
     for brand in brands:
         log.info(f"[{brand}] Calling {APIFY_SOFTWARE_REVIEWS_ACTOR}...")
@@ -167,6 +168,7 @@ def collect_software_reviews(
         if "SUCCEEDED" not in status or not dataset_id:
             log.error(f"[{brand}] Run did not succeed: status={status!r}")
             continue
+        succeeded_brands += 1
 
         total = inserted = mismatched = 0
         for item in client.dataset(dataset_id).iterate_items():
@@ -181,5 +183,10 @@ def collect_software_reviews(
 
         log.info(f"[{brand}] {total} items, {inserted} new signals inserted"
                  + (f", {mismatched} product mismatches skipped" if mismatched else ""))
+
+    if succeeded_brands == 0:
+        # Every actor call failed (e.g. Apify account cap) — raise so the
+        # pipeline doesn't stamp the monthly flag on a run that scraped nothing
+        raise RuntimeError(f"all {len(brands)} G2/Capterra actor calls failed")
 
     return new_signals

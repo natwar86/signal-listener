@@ -32,12 +32,17 @@ logging.basicConfig(
 log = logging.getLogger("signal-listener")
 
 
-def step_collect(max_pages=None, apps=None):
-    """Collect reviews from all configured Shopify apps, then Trustpilot."""
+def step_collect(max_pages=None, apps=None, errors=None):
+    """Collect reviews from all configured Shopify apps, then Trustpilot.
+
+    Per-source failures are logged AND appended to `errors` (the heartbeat's
+    error list) — a run that silently scraped nothing must not report "ok".
+    """
     log.info("=" * 60)
     log.info("STEP 1: Collecting Shopify reviews")
     log.info("=" * 60)
 
+    errors = errors if errors is not None else []
     app_list = apps or SHOPIFY_APPS
     fetcher = PoliteFetcher(min_delay=SHOPIFY_MIN_DELAY, max_delay=SHOPIFY_MAX_DELAY)
     total_new = 0
@@ -55,6 +60,7 @@ def step_collect(max_pages=None, apps=None):
             total_new += len(signals)
     except Exception as e:
         log.error(f"Collection error: {e}")
+        errors.append(f"shopify: {e}")
     finally:
         fetcher.close()
 
@@ -81,6 +87,7 @@ def step_collect(max_pages=None, apps=None):
         total_new += len(signals)
     except Exception as e:
         log.error(f"Trustpilot collection error: {e}")
+        errors.append(f"trustpilot: {e}")
 
     log.info("Collecting Google Maps reviews")
     try:
@@ -111,10 +118,12 @@ def step_collect(max_pages=None, apps=None):
             total_new += len(signals)
     except Exception as e:
         log.error(f"Google Maps collection error: {e}")
+        errors.append(f"google_maps: {e}")
 
     log.info("Collecting G2/Capterra reviews")
     try:
         from datetime import datetime, timezone, timedelta
+        from db import get_connection
         from collectors.software_reviews import collect_software_reviews
         # Monthly cadence: the actor has no date filter and a 100-review
         # floor per brand, so every run re-pays for the newest slice.
@@ -122,10 +131,20 @@ def step_collect(max_pages=None, apps=None):
         flag_path = Path(DB_PATH).parent / "g2capterra_last_run.txt"
         last = (datetime.fromisoformat(flag_path.read_text().strip())
                 if flag_path.exists() else None)
+        # A flag with no G2/Capterra signals behind it means the stamped run
+        # scraped nothing (e.g. Apify cap) — treat it as never having run
+        conn = get_connection(DB_PATH)
+        backfilled = conn.execute(
+            "SELECT COUNT(*) FROM signals WHERE source IN ('g2', 'capterra')"
+        ).fetchone()[0] > 0
+        conn.close()
+        if last is not None and not backfilled:
+            log.warning("G2/Capterra flag present but no signals in DB — re-running backfill")
+            last = None
         if last is None or datetime.now(timezone.utc) - last > timedelta(days=28):
             signals = collect_software_reviews(
                 SOFTWARE_REVIEW_BRANDS,
-                max_reviews_per_brand=400 if last is None else 100,
+                max_reviews_per_brand=400 if not backfilled else 100,
                 dry_run=False, max_cost_usd=15.00, db_path=DB_PATH,
             )
             total_new += len(signals)
@@ -134,13 +153,15 @@ def step_collect(max_pages=None, apps=None):
             log.info(f"Skipping G2/Capterra — last run {last.date()}, monthly cadence")
     except Exception as e:
         log.error(f"G2/Capterra collection error: {e}")
+        errors.append(f"g2capterra: {e}")
 
     log.info(f"Collection complete. {total_new} new signals.")
     return total_new
 
 
-def step_classify():
+def step_classify(errors=None):
     """Classify any unclassified signals."""
+    errors = errors if errors is not None else []
     log.info("=" * 60)
     log.info("STEP 2: Classifying signals")
     log.info("=" * 60)
@@ -168,6 +189,8 @@ def step_classify():
             log.warning(f"  Failed to classify {signal['id']}")
 
     log.info(f"Classified {classified}/{len(signals)} signals.")
+    if classified < len(signals):
+        errors.append(f"classify: {len(signals) - classified} of {len(signals)} failed")
     return classified
 
 
@@ -249,13 +272,12 @@ def main():
 
     try:
         if not args.skip_collect:
-            report["collected"] = step_collect(max_pages=args.max_pages, apps=args.apps)
-            if report["collected"] > 0 and not args.skip_classify:
-                report["classified"] = step_classify()
-            elif report["collected"] == 0:
-                log.info("No new signals — skipping classification")
-        elif not args.skip_classify:
-            report["classified"] = step_classify()
+            report["collected"] = step_collect(max_pages=args.max_pages, apps=args.apps,
+                                               errors=report["errors"])
+        # Classify even when nothing new was collected: earlier runs can leave
+        # an unclassified backlog (e.g. API credits ran out mid-run)
+        if not args.skip_classify:
+            report["classified"] = step_classify(errors=report["errors"])
 
         if not args.skip_enrich:
             try:
