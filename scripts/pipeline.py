@@ -16,7 +16,7 @@ from db import init_db, get_stats
 from config import (
     DB_PATH, DASHBOARD_DATA_DIR, SHOPIFY_APPS, TRUSTPILOT_COMPANIES,
     GOOGLE_MAPS_PLACES, SOFTWARE_REVIEW_BRANDS,
-    SHOPIFY_MIN_DELAY, SHOPIFY_MAX_DELAY, ANTHROPIC_API_KEY,
+    SHOPIFY_MIN_DELAY, SHOPIFY_MAX_DELAY, OPENROUTER_API_KEY,
 )
 from collectors.base import PoliteFetcher
 from collectors.shopify_reviews import collect_shopify_reviews
@@ -166,8 +166,8 @@ def step_classify(errors=None):
     log.info("STEP 2: Classifying signals")
     log.info("=" * 60)
 
-    if not ANTHROPIC_API_KEY:
-        log.warning("ANTHROPIC_API_KEY not set — skipping classification")
+    if not OPENROUTER_API_KEY:
+        log.warning("OPENROUTER_API_KEY not set — skipping classification")
         return 0
 
     # 4000 covers the Trustpilot backfill in one run; the cheap-path handles

@@ -1,11 +1,15 @@
 """
-AI classification layer using Claude Haiku.
+AI classification layer using Claude Haiku via OpenRouter.
 
 Vendor-neutral: classifies signals for a competitive-intelligence feed
 covering the ecommerce fulfillment ecosystem, not for any one company.
 
-Structured output via output_config.format guarantees valid JSON — no
-markdown fence parsing. Short glowing reviews skip the API entirely
+OpenRouter (openrouter.ai) fronts the model so billing isn't tied to a
+single provider — CLASSIFICATION_MODELS lists the primary model plus
+automatic failover targets, all reachable through one API key.
+
+Structured output via response_format json_schema guarantees valid JSON —
+no markdown fence parsing. Short glowing reviews skip the API entirely
 (cheap path) since they carry no competitive signal.
 """
 
@@ -15,7 +19,7 @@ import logging
 from typing import Optional
 
 from config import (
-    ANTHROPIC_API_KEY, CLASSIFICATION_MODEL, US_METROS,
+    OPENROUTER_API_KEY, CLASSIFICATION_MODELS, US_METROS,
     COMPETITORS, SHOPIFY_APP_NAMES,
 )
 
@@ -75,8 +79,11 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        import anthropic
-        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        import openai
+        _client = openai.OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_API_KEY,
+        )
     return _client
 
 
@@ -116,8 +123,8 @@ def _cheap_classify(body: str, rating, subject: str) -> Optional[dict]:
 
 def classify_signal(signal_dict: dict) -> Optional[dict]:
     """Classify a single signal. Returns the classification dict, or None on failure."""
-    if not ANTHROPIC_API_KEY:
-        log.error("ANTHROPIC_API_KEY not set. Cannot classify.")
+    if not OPENROUTER_API_KEY:
+        log.error("OPENROUTER_API_KEY not set. Cannot classify.")
         return None
 
     raw = (json.loads(signal_dict["raw_json"])
@@ -142,14 +149,22 @@ def classify_signal(signal_dict: dict) -> Optional[dict]:
     )
 
     try:
-        message = _get_client().messages.create(
-            model=CLASSIFICATION_MODEL,
+        response = _get_client().chat.completions.create(
+            model=CLASSIFICATION_MODELS[0],
             max_tokens=500,
-            output_config={"format": {"type": "json_schema",
-                                      "schema": CLASSIFICATION_SCHEMA}},
             messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_schema",
+                             "json_schema": {"name": "classification",
+                                             "strict": True,
+                                             "schema": CLASSIFICATION_SCHEMA}},
+            # OpenRouter routing: try each model in order until one answers
+            extra_body={"models": CLASSIFICATION_MODELS},
         )
-        text = next(b.text for b in message.content if b.type == "text")
+        text = response.choices[0].message.content
+        if not text:
+            log.error(f"Empty classification response "
+                      f"(finish_reason={response.choices[0].finish_reason})")
+            return None
         return json.loads(text)
     except Exception as e:
         log.error(f"Classification API error: {e}")

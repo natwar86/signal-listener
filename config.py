@@ -27,6 +27,7 @@ OUTPUT_DIR = VOLUME_PATH / "output"
 # ---------------------------------------------------------------------------
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 EXA_API_KEY = os.getenv("EXA_API_KEY", "")
 APOLLO_API_KEY = os.getenv("APOLLO_API_KEY", "")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
@@ -84,7 +85,12 @@ REDDIT_KEYWORDS = [
 # AI Classification
 # ---------------------------------------------------------------------------
 
-CLASSIFICATION_MODEL = "claude-haiku-4-5-20251001"
+# Classification goes through OpenRouter so billing isn't tied to one
+# provider: primary model first, then automatic failover down the list.
+CLASSIFICATION_MODELS = [
+    "anthropic/claude-haiku-4.5",
+    "google/gemini-2.5-flash",
+]
 
 # Major US metros for geo-tagging signals (stored in the signals.market column).
 # Buyers of the feed are location-sensitive (co-warehouses operate per-metro).
